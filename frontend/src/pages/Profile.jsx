@@ -1,178 +1,149 @@
-import React, { useEffect, useState } from "react";
-import Layout from "../components/Layout";
+import React, { useState } from "react";
+import Navbar from "../components/Navbar";
 
 export default function Profile() {
-  // demo: load current user (set by Login)
-  const me = JSON.parse(localStorage.getItem("lh_user") || "null");
-
-  const [form, setForm] = useState({
-    full_name: "",
-    tz: "Asia/Bangkok",
-    height_cm: "",
-    goal_steps: 10000,
-    goal_sleep_hours: 8,
-    goal_workout_min: 45,
+  const [profile, setProfile] = useState({
+    name: "Bob Member",
+    timezone: "Asia/Bangkok",
+    height: "170",
+    weight: "65", // ✅ added default weight
   });
-  const [msg, setMsg] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  // load saved profile (demo)
-  useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("lh_profile") || "null");
-    if (saved) setForm(saved);
-    if (me?.full_name && !saved?.full_name) {
-      setForm((v) => ({ ...v, full_name: me.full_name }));
-    }
-  }, []);
+  const [goals, setGoals] = useState({
+    steps: 10000,
+    sleep: 8,
+    workout: 45,
+  });
 
-  function setField(k, v) {
-    setForm((prev) => ({ ...prev, [k]: v }));
-  }
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setProfile((prev) => ({ ...prev, [name]: value }));
+  };
 
-  async function save() {
-    setBusy(true);
-    // demo delay
-    await new Promise((r) => setTimeout(r, 400));
-    localStorage.setItem("lh_profile", JSON.stringify(form));
-    setBusy(false);
-    setMsg("✅ Saved (demo)");
-    setTimeout(() => setMsg(""), 1200);
-  }
+  const handleGoalChange = (e) => {
+    const { name, value } = e.target;
+    setGoals((prev) => ({ ...prev, [name]: value }));
+  };
 
-  function logout() {
-    localStorage.removeItem("lh_user");
-    window.location.href = "/login";
-  }
+  const handleSave = () => {
+    alert("Profile saved successfully!");
+  };
 
   return (
-    <Layout>
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Profile</h1>
-          <button onClick={logout} className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">
-            Logout
-          </button>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <Navbar />
+      <div className="max-w-5xl mx-auto p-8">
+        <h1 className="text-2xl font-semibold mb-6">Profile</h1>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Account card */}
-          <Card>
-            <Header title="Account" subtitle="Your basic information" />
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Account Section */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+            <h2 className="text-lg font-semibold mb-1">Account</h2>
+            <p className="text-slate-400 text-sm mb-4">Your basic information</p>
+
             <div className="space-y-4">
-              <Field label="Full name">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Full name</label>
                 <input
-                  className="inp"
-                  value={form.full_name}
-                  onChange={(e) => setField("full_name", e.target.value)}
-                  placeholder="Bob Member"
+                  type="text"
+                  name="name"
+                  value={profile.name}
+                  onChange={handleChange}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"
                 />
-              </Field>
+              </div>
 
-              <Field label="Time zone">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Time zone</label>
                 <select
-                  className="inp"
-                  value={form.tz}
-                  onChange={(e) => setField("tz", e.target.value)}
+                  name="timezone"
+                  value={profile.timezone}
+                  onChange={handleChange}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"
                 >
-                  <option>Asia/Bangkok</option>
-                  <option>Asia/Tokyo</option>
-                  <option>Europe/London</option>
-                  <option>America/New_York</option>
-                  <option>America/Los_Angeles</option>
+                  <option value="Asia/Bangkok">Asia/Bangkok</option>
+                  <option value="Asia/Singapore">Asia/Singapore</option>
+                  <option value="Asia/Tokyo">Asia/Tokyo</option>
+                  <option value="America/New_York">America/New York</option>
                 </select>
-              </Field>
+              </div>
 
-              <Field label="Height (cm)">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Height (cm)</label>
                 <input
                   type="number"
-                  step="0.1"
-                  className="inp"
-                  value={form.height_cm}
-                  onChange={(e) => setField("height_cm", e.target.value)}
-                  placeholder="170"
+                  name="height"
+                  value={profile.height}
+                  onChange={handleChange}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"
                 />
-              </Field>
+              </div>
 
-              <div className="flex justify-end gap-2">
-                {msg && (
-                  <span className={`text-sm ${msg.startsWith("✅") ? "text-emerald-400" : "text-rose-400"}`}>{msg}</span>
-                )}
-                <button onClick={save} disabled={busy} className="btn">
-                  {busy ? "Saving…" : "Save"}
-                </button>
+              {/* ✅ New Weight Field */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Weight (kg)</label>
+                <input
+                  type="number"
+                  name="weight"
+                  value={profile.weight}
+                  onChange={handleChange}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"
+                />
+              </div>
+
+              <button
+                onClick={handleSave}
+                className="bg-sky-600 hover:bg-sky-500 px-4 py-2 rounded-xl text-sm font-semibold mt-2"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+
+          {/* Goals Section */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+            <h2 className="text-lg font-semibold mb-1">Goals</h2>
+            <p className="text-slate-400 text-sm mb-4">
+              Used for readiness & dashboard
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Daily steps</label>
+                <input
+                  type="number"
+                  name="steps"
+                  value={goals.steps}
+                  onChange={handleGoalChange}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Sleep hours / night</label>
+                <input
+                  type="number"
+                  name="sleep"
+                  value={goals.sleep}
+                  onChange={handleGoalChange}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Workout minutes / day</label>
+                <input
+                  type="number"
+                  name="workout"
+                  value={goals.workout}
+                  onChange={handleGoalChange}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200"
+                />
               </div>
             </div>
-          </Card>
-
-          {/* Goals card */}
-          <Card>
-            <Header title="Goals" subtitle="Used for readiness & dashboard" />
-            <div className="space-y-4">
-              <Field label="Daily steps">
-                <input
-                  type="number"
-                  className="inp"
-                  value={form.goal_steps}
-                  onChange={(e) => setField("goal_steps", Number(e.target.value))}
-                />
-              </Field>
-              <Field label="Sleep hours / night">
-                <input
-                  type="number"
-                  step="0.1"
-                  className="inp"
-                  value={form.goal_sleep_hours}
-                  onChange={(e) =>
-                    setField("goal_sleep_hours", Number(e.target.value))
-                  }
-                />
-              </Field>
-              <Field label="Workout minutes / day">
-                <input
-                  type="number"
-                  className="inp"
-                  value={form.goal_workout_min}
-                  onChange={(e) =>
-                    setField("goal_workout_min", Number(e.target.value))
-                  }
-                />
-              </Field>
-            </div>
-          </Card>
+          </div>
         </div>
       </div>
-    </Layout>
-  );
-}
-
-/* --- small UI helpers (same style as the rest of your app) --- */
-function Card({ children }) {
-  return (
-    <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5">
-      {children}
     </div>
   );
 }
-function Header({ title, subtitle }) {
-  return (
-    <div className="mb-4">
-      <div className="text-lg font-semibold">{title}</div>
-      <div className="text-slate-400 text-sm">{subtitle}</div>
-    </div>
-  );
-}
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <div className="text-sm text-slate-400 mb-1">{label}</div>
-      {children}
-    </label>
-  );
-}
-
-/* Tailwind shorthands used in this file:
-   .btn  -> primary action
-   .inp  -> input styling
-   If you don't already have these utilities globally,
-   add them to src/index.css as below.
-*/
