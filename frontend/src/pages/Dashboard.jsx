@@ -23,6 +23,8 @@ import {
 } from "recharts";
 import { Link } from "react-router-dom";
 import LogModal from "../components/LogModal.jsx";
+import Navbar from "../components/Navbar";
+
 
 
 export default function Dashboard() {
@@ -60,29 +62,9 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-6">
+        <div className="min-h-screen bg-slate-950 text-slate-100 space-y-6">
             {/* ✅ NAVBAR SECTION */}
-            <nav className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 shadow-md">
-                <div className="flex items-center gap-2 text-xl font-bold text-sky-400">
-                    <Heart className="h-5 w-5 text-sky-400" />
-                    LongevityHub
-                </div>
-
-                <div className="flex items-center gap-6 text-sm">
-                    <Link to="/dashboard" className="hover:text-sky-400 transition">Dashboard</Link>
-                    <Link to="/meals" className="hover:text-sky-400 transition">Meals</Link>
-                    <Link to="/workouts" className="hover:text-sky-400 transition">Workouts</Link>
-                    <Link to="/sleep" className="hover:text-sky-400 transition">Sleep</Link>
-                    <Link to="/wearables" className="hover:text-sky-400 transition">Wearables</Link>
-                    <Link to="/trends" className="hover:text-sky-400 transition">Trends</Link>
-                    <Link to="/profile" className="hover:text-sky-400 transition">Profile</Link>
-                    <Link to="/admin" className="hover:text-sky-400 transition">Admin</Link>
-                </div>
-
-                <button className="bg-sky-600 hover:bg-sky-500 px-3 py-1.5 rounded-lg text-sm font-semibold">
-                    Log Out
-                </button>
-            </nav>
+            <Navbar />
             {/* Header */}
             <div className="flex items-center justify-between">
 
