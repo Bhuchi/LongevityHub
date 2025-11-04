@@ -1,223 +1,186 @@
-import React, { useEffect, useState } from "react";
-import Layout from "../../components/Layout";
-import { Search, UserPlus, Trash2, Shield } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Users, ArrowLeft, Plus, Search, Trash2, Shield } from "lucide-react";
+import Navbar from "../../components/Navbar"; // ✅ use your existing navbar
+import { useNavigate } from "react-router-dom";
+
+/* UI helpers */
+const Card = ({ className = "", children }) => (
+  <div className={`rounded-2xl bg-slate-900/60 border border-slate-800 shadow-lg ${className}`}>
+    {children}
+  </div>
+);
+
+const Button = ({ variant = "solid", size = "md", className = "", children, ...props }) => {
+  const base = "rounded-xl font-semibold transition inline-flex items-center justify-center gap-2";
+  const sizes = {
+    sm: "text-xs px-3 py-1.5",
+    md: "text-sm px-3.5 py-2",
+  };
+  const variants = {
+    solid: "bg-sky-600 hover:bg-sky-500 text-white",
+    ghost: "bg-slate-800/60 hover:bg-slate-800 text-slate-100 border border-slate-700",
+    subtle: "bg-slate-900/60 hover:bg-slate-800/70 text-slate-200 border border-slate-700",
+    danger: "bg-rose-600 hover:bg-rose-500 text-white",
+  };
+  return (
+    <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props}>
+      {children}
+    </button>
+  );
+};
+
+const RolePill = ({ role }) => {
+  const map = {
+    admin: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    user: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  };
+  return (
+    <span className={`text-xs px-2 py-1 rounded-lg border ${map[role] || "bg-slate-700/30 text-slate-300 border-slate-600/40"}`}>
+      {role}
+    </span>
+  );
+};
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState([]);
+  const navigate = useNavigate();
+
+  // Demo data
+  const [users, setUsers] = useState([
+    { id: 1, name: "John Doe", email: "john@example.com", role: "admin", joined: "2025-10-01" },
+    { id: 2, name: "Sarah Smith", email: "sarah@longevityhub.com", role: "user", joined: "2025-10-02" },
+    { id: 3, name: "David Chen", email: "davidc@gmail.com", role: "user", joined: "2025-10-03" },
+    { id: 4, name: "Emily Brown", email: "emilyb@gmail.com", role: "user", joined: "2025-10-05" },
+  ]);
   const [q, setQ] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [demoMode, setDemoMode] = useState(true);
 
-  // Load demo data or real data
-  useEffect(() => {
-    if (demoMode) {
-      setUsers(sampleUsers());
-      return;
-    }
-    fetch("/api/users.php")
-      .then(r => r.json())
-      .then(setUsers)
-      .catch(e => setMsg("Failed to load users"));
-  }, [demoMode]);
+  const filtered = useMemo(() => {
+    if (!q) return users;
+    const s = q.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(s) ||
+        u.email.toLowerCase().includes(s) ||
+        u.role.toLowerCase().includes(s)
+    );
+  }, [users, q]);
 
-  function addUser(u) {
-    const newUser = { ...u, id: Date.now(), created_at: new Date().toISOString().slice(0, 10) };
-    setUsers([newUser, ...users]);
-    setShowAdd(false);
-    setMsg("✅ User added (demo)");
-  }
+  const addUser = () => {
+    const name = prompt("New user's name:");
+    if (!name) return;
+    const email = prompt("Email:");
+    if (!email) return;
+    const role = (prompt("Role (admin/user):", "user") || "user").toLowerCase() === "admin" ? "admin" : "user";
+    const id = Date.now();
+    const joined = new Date().toISOString().slice(0, 10);
+    setUsers([{ id, name: name.trim(), email: email.trim(), role, joined }, ...users]);
+  };
 
-  function delUser(id) {
-    setUsers(v => v.filter(u => u.id !== id));
-    setMsg("🗑️ User removed (demo)");
-  }
-
-  const filtered = users.filter(
-    u =>
-      u.name.toLowerCase().includes(q.toLowerCase()) ||
-      u.email.toLowerCase().includes(q.toLowerCase()) ||
-      u.role.toLowerCase().includes(q.toLowerCase())
-  );
+  const removeUser = (id) => {
+    if (!confirm("Delete this user?")) return;
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  };
 
   return (
-    <Layout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Admin — Users</h1>
-          <div className="text-slate-400 text-sm">Manage user accounts and roles</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAdd(true)}
-            className="btn flex items-center gap-1"
-          >
-            <UserPlus className="h-4 w-4" /> Add User
-          </button>
-          <button
-            onClick={() => setDemoMode(d => !d)}
-            className={`text-xs px-2 py-1 rounded-lg border ${
-              demoMode
-                ? "border-emerald-600 text-emerald-300 bg-emerald-600/10"
-                : "border-slate-700 text-slate-300"
-            }`}
-            title={demoMode ? "Demo mode ON" : "Live mode"}
-          >
-            {demoMode ? "Demo" : "Live"}
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <Navbar />
+      <div className="pt-16">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
 
-      {msg && <div className="text-sm text-sky-400 mb-3">{msg}</div>}
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-sky-600/15 border border-sky-700/40 grid place-items-center">
+                <Users className="h-5 w-5 text-sky-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">Admin — Users</h1>
+                <p className="text-slate-400 text-sm">Manage user accounts and roles</p>
+              </div>
+            </div>
 
-      <div className="flex items-center mb-4">
-        <Search className="h-4 w-4 text-slate-400 absolute ml-3" />
-        <input
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder="Search by name, email, or role"
-          className="inp pl-8 w-80"
-        />
-      </div>
-
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/60">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-900 text-slate-300 border-b border-slate-800">
-            <tr>
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Email</th>
-              <th className="text-left p-3">Role</th>
-              <th className="text-left p-3">Joined</th>
-              <th className="p-3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {filtered.map(u => (
-              <tr key={u.id} className="hover:bg-slate-800/60">
-                <td className="p-3">{u.name}</td>
-                <td className="p-3 text-slate-400">{u.email}</td>
-                <td className="p-3">
-                  <span
-                    className={`px-2 py-1 rounded-lg text-xs ${
-                      u.role === "admin"
-                        ? "bg-amber-600/20 text-amber-400"
-                        : "bg-sky-600/20 text-sky-300"
-                    }`}
-                  >
-                    {u.role}
-                  </span>
-                </td>
-                <td className="p-3 text-slate-400">{u.created_at}</td>
-                <td className="p-3 text-right">
-                  <button
-                    onClick={() => delUser(u.id)}
-                    className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs flex items-center gap-1 float-right"
-                  >
-                    <Trash2 className="h-3 w-3" /> Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan="5" className="p-4 text-center text-slate-400">
-                  No users found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {showAdd && <AddUserModal onClose={() => setShowAdd(false)} onSave={addUser} />}
-    </Layout>
-  );
-}
-
-function AddUserModal({ onClose, onSave }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("user");
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    if (!name || !email) return;
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 300));
-    onSave({ name, email, role });
-    setSaving(false);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-slate-900/80 border border-slate-800 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Add User</h2>
-          <button
-            className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="grid gap-3">
-          <label className="block">
-            <div className="text-sm text-slate-400 mb-1">Name</div>
-            <input
-              className="inp"
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
-          </label>
-          <label className="block">
-            <div className="text-sm text-slate-400 mb-1">Email</div>
-            <input
-              type="email"
-              className="inp"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
-          </label>
-          <label className="block">
-            <div className="text-sm text-slate-400 mb-1">Role</div>
-            <select
-              className="inp"
-              value={role}
-              onChange={e => setRole(e.target.value)}
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-
-          <div className="flex justify-end gap-2">
-            <button
-              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn"
-              onClick={save}
-              disabled={saving}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" onClick={() => navigate("/admin")}>
+                <ArrowLeft className="h-4 w-4" />
+                Back to Admin Page
+              </Button>
+              <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-1 rounded-lg">Demo</span>
+              <Button onClick={addUser}>
+                <Plus className="h-4 w-4" />
+                Add User
+              </Button>
+            </div>
           </div>
+
+          {/* Search */}
+          <Card className="p-4">
+            <div className="relative">
+              <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search by name, email, or role"
+                className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
+              />
+            </div>
+          </Card>
+
+          {/* Table */}
+          <Card>
+            <div className="overflow-hidden rounded-2xl">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-900/70 border-b border-slate-800 text-slate-300">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-semibold">Name</th>
+                    <th className="text-left px-5 py-3 font-semibold">Email</th>
+                    <th className="text-left px-5 py-3 font-semibold">Role</th>
+                    <th className="text-left px-5 py-3 font-semibold">Joined</th>
+                    <th className="text-left px-5 py-3 font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((u, i) => (
+                    <tr
+                      key={u.id}
+                      className={`border-b border-slate-800/70 ${i % 2 ? "bg-slate-900/30" : "bg-slate-900/10"}`}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-slate-800 grid place-items-center border border-slate-700">
+                            <Shield className={`h-4 w-4 ${u.role === "admin" ? "text-amber-400" : "text-slate-400"}`} />
+                          </div>
+                          <span className="font-medium">{u.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-slate-300">{u.email}</td>
+                      <td className="px-5 py-3"><RolePill role={u.role} /></td>
+                      <td className="px-5 py-3 text-slate-300">{u.joined}</td>
+                      <td className="px-5 py-3">
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removeUser(u.id)}
+                          className="min-w-[92px]"
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-6 text-center text-slate-400">
+                        No users found for “{q}”.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       </div>
     </div>
   );
-}
-
-/* ---- demo users ---- */
-function sampleUsers() {
-  return [
-    { id: 1, name: "John Doe", email: "john@example.com", role: "admin", created_at: "2025-10-01" },
-    { id: 2, name: "Sarah Smith", email: "sarah@longevityhub.com", role: "user", created_at: "2025-10-02" },
-    { id: 3, name: "David Chen", email: "davidc@gmail.com", role: "user", created_at: "2025-10-03" },
-    { id: 4, name: "Emily Brown", email: "emilyb@gmail.com", role: "user", created_at: "2025-10-05" },
-  ];
 }
