@@ -17,7 +17,18 @@
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
+/* Make the calendar icon white for dark theme */
+.date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.8;
+  cursor: pointer;
+}
 
+/* Optional hover effect for better visibility */
+.date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  filter: invert(1) brightness(1.3);
+}
 @keyframes logo-spin {
   from {
     transform: rotate(0deg);
