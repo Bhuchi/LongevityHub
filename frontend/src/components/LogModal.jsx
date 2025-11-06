@@ -1,9 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Utensils, Dumbbell, Moon, Watch } from "lucide-react";
 
-export default function LogModal({ isOpen, onClose }) {
-  const [type, setType] = useState("");
+export default function LogModal({ isOpen, onClose, type: initialType }) {
+  const [activeType, setActiveType] = useState("");
+
+  // decide what to show when the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (initialType) {
+        // opened from shortcut: meal/workout/sleep
+        setActiveType(initialType);
+      } else {
+        // opened from + Log button: show 4 tiles
+        setActiveType("");
+      }
+    } else {
+      // when closed, clear state
+      setActiveType("");
+    }
+  }, [isOpen, initialType]);
 
   return (
     <AnimatePresence>
@@ -28,37 +44,43 @@ export default function LogModal({ isOpen, onClose }) {
               <X className="h-5 w-5" />
             </button>
 
-            <h2 className="text-xl font-semibold mb-2">Log New Entry</h2>
-            <p className="text-slate-400 text-sm mb-4">
-              Choose what you’d like to log today.
-            </p>
-
-            {/* Type selection */}
-            {!type ? (
-              <div className="grid grid-cols-2 gap-3">
-                <LogTypeCard
-                  icon={<Utensils className="h-6 w-6 text-amber-400" />}
-                  label="Meal"
-                  onClick={() => setType("meal")}
-                />
-                <LogTypeCard
-                  icon={<Dumbbell className="h-6 w-6 text-sky-400" />}
-                  label="Workout"
-                  onClick={() => setType("workout")}
-                />
-                <LogTypeCard
-                  icon={<Moon className="h-6 w-6 text-violet-400" />}
-                  label="Sleep"
-                  onClick={() => setType("sleep")}
-                />
-                <LogTypeCard
-                  icon={<Watch className="h-6 w-6 text-emerald-400" />}
-                  label="Wearable"
-                  onClick={() => setType("wearable")}
-                />
-              </div>
+            {/* If no type picked yet → show chooser */}
+            {!activeType ? (
+              <>
+                <h2 className="text-xl font-semibold mb-2">Log New Entry</h2>
+                <p className="text-slate-400 text-sm mb-4">
+                  Choose what you’d like to log today.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <LogTypeCard
+                    icon={<Utensils className="h-6 w-6 text-amber-400" />}
+                    label="Meal"
+                    onClick={() => setActiveType("meal")}
+                  />
+                  <LogTypeCard
+                    icon={<Dumbbell className="h-6 w-6 text-sky-400" />}
+                    label="Workout"
+                    onClick={() => setActiveType("workout")}
+                  />
+                  <LogTypeCard
+                    icon={<Moon className="h-6 w-6 text-violet-400" />}
+                    label="Sleep"
+                    onClick={() => setActiveType("sleep")}
+                  />
+                  <LogTypeCard
+                    icon={<Watch className="h-6 w-6 text-emerald-400" />}
+                    label="Wearable"
+                    onClick={() => setActiveType("wearable")}
+                  />
+                </div>
+              </>
             ) : (
-              <LogForm type={type} onBack={() => setType("")} />
+              // otherwise show the form straight away
+              <LogForm
+                type={activeType}
+                onBack={() => setActiveType("")}
+                onDone={onClose}
+              />
             )}
           </motion.div>
         </motion.div>
@@ -79,7 +101,7 @@ function LogTypeCard({ icon, label, onClick }) {
   );
 }
 
-function LogForm({ type, onBack }) {
+function LogForm({ type, onBack, onDone }) {
   const placeholders = {
     meal: "e.g., Chicken breast, 120g + Rice 80g",
     workout: "e.g., 45 min, Chest day, Moderate intensity",
@@ -102,14 +124,12 @@ function LogForm({ type, onBack }) {
       >
         ← Back
       </button>
-      <h3 className="text-lg font-semibold mb-3 capitalize">
-        Log {type}
-      </h3>
+      <h3 className="text-lg font-semibold mb-3 capitalize">Log {type}</h3>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           alert(`✅ ${type} logged successfully (demo mode).`);
-          onBack();
+          onDone();
         }}
         className="space-y-4"
       >

@@ -26,10 +26,9 @@ import LogModal from "../components/LogModal.jsx";
 import Navbar from "../components/Navbar";
 
 
-
 export default function Dashboard() {
     const [showLogModal, setShowLogModal] = useState(false);
-
+    const [logType, setLogType] = useState(null);
 
     const data = [
         { day: "10-01", protein: 80 },
@@ -63,23 +62,22 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 space-y-6">
-            {/* ✅ NAVBAR SECTION */}
-            <Navbar />
             {/* Header */}
             <div className="flex items-center justify-between">
-
                 <div className="flex items-center gap-2">
                     <input
                         type="date"
-                        className="rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-sm px-3 py-1"
+                        className="date-input rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-sm px-3 py-1"
                     />
                     <button
-                        onClick={() => setShowLogModal(true)}
+                        onClick={() => {
+                            setLogType(null);          // open main chooser
+                            setShowLogModal(true);
+                        }}
                         className="bg-sky-600 hover:bg-sky-500 text-sm font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1"
                     >
                         <Plus className="h-4 w-4" /> Log
                     </button>
-
                 </div>
             </div>
 
@@ -242,7 +240,9 @@ export default function Dashboard() {
                 <Card>
                     <div className="flex justify-between items-center mb-3">
                         <h2 className="text-lg font-semibold">Recent Activity</h2>
-                        <button className="text-sky-400 text-sm hover:underline">View all</button>
+                        <button className="text-sky-400 text-sm hover:underline">
+                            View all
+                        </button>
                     </div>
                     <ul className="space-y-3 text-sm text-slate-300">
                         <li>08:40 — Breakfast · Oats 80g, Orange 130g</li>
@@ -326,23 +326,35 @@ export default function Dashboard() {
                 </Card>
 
 
+                {/* ✅ SHORTCUTS card */}
                 <Card>
                     <div className="flex items-center gap-2 mb-3">
                         <Clock className="h-5 w-5 text-emerald-400" />
                         <h2 className="text-lg font-semibold">Shortcuts</h2>
                     </div>
                     <div className="flex gap-3 flex-wrap">
-                        {["Log Meal", "Log Workout", "Log Sleep"].map((x) => (
+                        {[
+                            { label: "Log meal", type: "meal" },
+                            { label: "Log workout", type: "workout" },
+                            { label: "Log sleep", type: "sleep" },
+                        ].map((btn) => (
                             <button
-                                key={x}
+                                key={btn.label}
+                                onClick={() => {
+                                    setLogType(btn.type);       // 👈 open directly
+                                    setShowLogModal(true);
+                                }}
                                 className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-sm"
                             >
-                                {x}
+                                {btn.label}
                             </button>
                         ))}
                     </div>
                 </Card>
 
+
+
+                {/* About card */}
                 <Card>
                     <h2 className="text-lg font-semibold mb-3">About</h2>
                     <p className="text-slate-400 text-sm">
@@ -356,13 +368,18 @@ export default function Dashboard() {
                     </p>
                 </Card>
             </div>
-            <LogModal isOpen={showLogModal} onClose={() => setShowLogModal(false)} />
+            {/* Modal */}
+            <LogModal
+                isOpen={showLogModal}
+                onClose={() => {
+                    setShowLogModal(false);
+                    setLogType(null);
+                }}
+                type={logType}
+            />
         </div>
     );
-
-
 }
-
 function MetricMini({ title, value, unit, icon }) {
     return (
         <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-sky-500 transition">
