@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
+import { Search } from "lucide-react";
 
 const LS_KEY = "lh_sleep";
 
@@ -24,11 +25,13 @@ export default function Sleep() {
   const [show, setShow] = useState(false);
   const [q, setQ] = useState("");
 
-  // load/save localStorage
+  // load from localStorage
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
     setLogs(saved);
   }, []);
+
+  // save to localStorage
   useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify(logs));
   }, [logs]);
@@ -40,6 +43,7 @@ export default function Sleep() {
     setLogs((v) => v.filter((x) => x.id !== id));
   }
 
+  // filter by search
   const filtered = useMemo(() => {
     if (!q.trim()) return logs;
     const s = q.toLowerCase();
@@ -58,35 +62,70 @@ export default function Sleep() {
 
   return (
     <Layout>
+      {/* header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Sleep</h1>
+          <h1 className="text-2xl font-bold text-slate-100">Sleep</h1>
           <div className="text-slate-400 text-sm">
             Track your sleep duration and quality (demo stored locally)
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search notes or quality…"
-            className="inp w-64"
-          />
-          <button className="btn" onClick={() => setShow(true)}>
+
+        <div className="flex items-center gap-3">
+          {/* Search box */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 w-64 shadow-sm hover:border-slate-600 transition">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search notes or quality..."
+              className="bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-500 w-full"
+            />
+          </div>
+
+          {/* Log Sleep Button */}
+          <button
+            onClick={() => setShow(true)}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold text-white shadow-sm transition"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
             Log sleep
           </button>
         </div>
+
       </div>
 
+      {/* stats */}
       <div className="grid gap-4 md:grid-cols-3 mb-4">
         <Stat label="Entries" value={logs.length} />
         <Stat label="Average Hours" value={avg} />
         <Stat label="Last Recorded" value={logs[0] ? fmt(logs[0].end) : "—"} />
       </div>
 
+      {/* list */}
       {filtered.length === 0 ? (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center text-slate-400">
-          No sleep logs yet. Click <span className="text-sky-400">Log sleep</span> to add one.
+          No sleep logs yet. Click{" "}
+          <button
+            className="text-sky-400 hover:underline"
+            onClick={() => setShow(true)}
+          >
+            Log sleep
+          </button>{" "}
+          to add one.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -106,7 +145,7 @@ function Stat({ label, value }) {
   return (
     <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5">
       <div className="text-slate-400 text-xs">{label}</div>
-      <div className="text-xl font-semibold">{value}</div>
+      <div className="text-xl font-semibold text-slate-100">{value}</div>
     </div>
   );
 }
@@ -114,17 +153,21 @@ function Stat({ label, value }) {
 function Card({ row, onDelete }) {
   return (
     <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="font-semibold">{row.hours.toFixed(1)} hours</div>
+          <div className="font-semibold text-slate-100">
+            {row.hours.toFixed(1)} hours
+          </div>
           <div className="text-slate-400 text-sm">
             {fmt(row.start)} → {fmt(row.end)} · {row.quality}
           </div>
-          {row.note && <div className="text-slate-300 text-sm mt-1">{row.note}</div>}
+          {row.note && (
+            <div className="text-slate-200 text-sm mt-1">{row.note}</div>
+          )}
         </div>
         <button
           onClick={onDelete}
-          className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs"
+          className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-100"
         >
           Delete
         </button>
@@ -163,9 +206,9 @@ function NewSleepModal({ onClose, onSave }) {
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-slate-900/80 border border-slate-800 p-5">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-lg font-semibold">Log sleep</div>
+          <div className="text-lg font-semibold text-slate-100">Log sleep</div>
           <button
-            className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm"
+            className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm text-slate-100"
             onClick={onClose}
           >
             Close
@@ -210,7 +253,9 @@ function NewSleepModal({ onClose, onSave }) {
           </label>
 
           <label className="block">
-            <div className="text-sm text-slate-400 mb-1">Note (optional)</div>
+            <div className="text-sm text-slate-400 mb-1">
+              Note (optional)
+            </div>
             <input
               className="inp"
               value={note}
@@ -221,18 +266,20 @@ function NewSleepModal({ onClose, onSave }) {
 
           <div className="rounded-xl bg-slate-950 border border-slate-800 p-3 text-sm">
             <span className="text-slate-400">Duration:</span>{" "}
-            <span className="font-semibold">{hours.toFixed(1)} hours</span>
+            <span className="font-semibold text-slate-100">
+              {hours.toFixed(1)} hours
+            </span>
           </div>
 
           <div className="flex justify-end gap-2">
             <button
-              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm"
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm text-slate-100"
               onClick={onClose}
             >
               Cancel
             </button>
             <button className="btn" onClick={save} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving…" : "Save sleep"}
             </button>
           </div>
         </div>

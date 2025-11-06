@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import { Link } from "react-router-dom";
+import { Search, Plus } from "lucide-react";
 
 /* ---------- demo foods catalog (per 100g) ---------- */
 const FOODS = [
   { id: 1, name: "Chicken Breast", protein_g: 31, fiber_g: 0 },
-  { id: 2, name: "Oats",           protein_g: 10.6, fiber_g: 10 },
-  { id: 3, name: "Orange",         protein_g: 0.9,  fiber_g: 2.4 },
-  { id: 4, name: "Greek Yogurt",   protein_g: 10,   fiber_g: 0 },
-  { id: 5, name: "Broccoli",       protein_g: 2.8,  fiber_g: 2.6 },
+  { id: 2, name: "Oats", protein_g: 10.6, fiber_g: 10 },
+  { id: 3, name: "Orange", protein_g: 0.9, fiber_g: 2.4 },
+  { id: 4, name: "Greek Yogurt", protein_g: 10, fiber_g: 0 },
+  { id: 5, name: "Broccoli", protein_g: 2.8, fiber_g: 2.6 },
 ];
 
 /* ---------- helpers ---------- */
@@ -23,7 +24,7 @@ function computeTotals(items) {
     if (!f) continue;
     const factor = (Number(it.grams) || 0) / 100;
     protein += f.protein_g * factor;
-    fiber   += f.fiber_g   * factor;
+    fiber += f.fiber_g * factor;
   }
   return { protein_g: Number(protein.toFixed(1)), fiber_g: Number(fiber.toFixed(1)) };
 }
@@ -58,34 +59,59 @@ export default function Meals() {
   function removeMeal(id) {
     setMeals(v => v.filter(m => m.id !== id));
   }
-
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Meals</h1>
-          <div className="text-slate-400 text-sm">Log meals and auto-calc protein & fiber (demo)</div>
+          <h1 className="text-2xl font-bold text-slate-100">Meals</h1>
+          <div className="text-slate-400 text-sm">
+            Log meals and auto-calc protein & fiber (demo)
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search meals or foods..."
-                 className="inp w-64" />
-          <button className="btn" onClick={()=>setShowNew(true)}>New meal</button>
+
+        <div className="flex items-center gap-3">
+          {/* search box */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 w-64">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search meals or foods..."
+              className="bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-500 w-full"
+            />
+          </div>
+
+          {/* ✅ THIS is the one that opens the modal */}
+          <button
+            onClick={() => setShowNew(true)}      // ⬅️ use setShowNew here
+            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold text-white shadow-sm transition"
+          >
+            <Plus className="h-4 w-4" />
+            Log meals
+          </button>
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center text-slate-400">
-          No meals yet. Click <span className="text-sky-400">New meal</span> to add your first one.
+          No meals yet. Click{" "}
+          <button
+            onClick={() => setShowNew(true)}
+            className="text-sky-400 hover:underline font-medium"
+          >
+            New meal
+          </button>{" "}
+          to add your first one.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filtered.map(m => (
-            <MealCard key={m.id} meal={m} onDelete={()=>removeMeal(m.id)} />
+            <MealCard key={m.id} meal={m} onDelete={() => removeMeal(m.id)} />
           ))}
         </div>
       )}
 
-      {showNew && <NewMealModal onClose={()=>setShowNew(false)} onSave={addMeal} />}
+      {showNew && <NewMealModal onClose={() => setShowNew(false)} onSave={addMeal} />}
     </Layout>
   );
 }
@@ -109,8 +135,8 @@ function MealCard({ meal, onDelete }) {
             <li key={idx} className="flex justify-between text-slate-300">
               <span>{f?.name || "Unknown"} <span className="text-slate-500">• {it.grams} g</span></span>
               <span className="text-slate-500">
-                {(f?.protein_g ?? 0) * (it.grams/100) > 0 ? `${((f?.protein_g ?? 0)*(it.grams/100)).toFixed(1)}g P` : "" }
-                {((f?.fiber_g ?? 0)*(it.grams/100) > 0) && ` · ${((f?.fiber_g ?? 0)*(it.grams/100)).toFixed(1)}g F`}
+                {(f?.protein_g ?? 0) * (it.grams / 100) > 0 ? `${((f?.protein_g ?? 0) * (it.grams / 100)).toFixed(1)}g P` : ""}
+                {((f?.fiber_g ?? 0) * (it.grams / 100) > 0) && ` · ${((f?.fiber_g ?? 0) * (it.grams / 100)).toFixed(1)}g F`}
               </span>
             </li>
           );
@@ -126,17 +152,17 @@ function MealCard({ meal, onDelete }) {
 }
 
 function NewMealModal({ onClose, onSave }) {
-  const [at, setAt] = useState(new Date().toISOString().slice(0,16));
+  const [at, setAt] = useState(new Date().toISOString().slice(0, 16));
   const [note, setNote] = useState("");
   const [items, setItems] = useState([{ food_id: 1, grams: 150 }]); // start with one row
   const [saving, setSaving] = useState(false);
   const totals = computeTotals(items);
 
   function setItem(i, field, value) {
-    setItems(arr => arr.map((r, idx) => idx===i ? { ...r, [field]: value } : r));
+    setItems(arr => arr.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
   }
-  function addRow(){ setItems(arr => [...arr, { food_id: 1, grams: 100 }]); }
-  function removeRow(i){ setItems(arr => arr.filter((_, idx) => idx !== i)); }
+  function addRow() { setItems(arr => [...arr, { food_id: 1, grams: 100 }]); }
+  function removeRow(i) { setItems(arr => arr.filter((_, idx) => idx !== i)); }
 
   async function save() {
     setSaving(true);
@@ -157,12 +183,12 @@ function NewMealModal({ onClose, onSave }) {
         <div className="grid gap-3">
           <label className="block">
             <div className="text-sm text-slate-400 mb-1">Meal time</div>
-            <input type="datetime-local" className="inp" value={at} onChange={e=>setAt(e.target.value)} />
+            <input type="datetime-local" className="inp" value={at} onChange={e => setAt(e.target.value)} />
           </label>
 
           <label className="block">
             <div className="text-sm text-slate-400 mb-1">Note (optional)</div>
-            <input className="inp" value={note} onChange={e=>setNote(e.target.value)} placeholder="e.g., chicken & rice" />
+            <input className="inp" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g., chicken & rice" />
           </label>
 
           <div className="rounded-xl bg-slate-950 border border-slate-800 p-3">
@@ -174,12 +200,12 @@ function NewMealModal({ onClose, onSave }) {
             <div className="space-y-2">
               {items.map((it, i) => (
                 <div key={i} className="grid grid-cols-6 gap-2">
-                  <select className="inp col-span-4" value={it.food_id} onChange={e=>setItem(i,'food_id', Number(e.target.value))}>
+                  <select className="inp col-span-4" value={it.food_id} onChange={e => setItem(i, 'food_id', Number(e.target.value))}>
                     {FOODS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
-                  <input type="number" className="inp col-span-2" value={it.grams} onChange={e=>setItem(i,'grams', Number(e.target.value))} />
+                  <input type="number" className="inp col-span-2" value={it.grams} onChange={e => setItem(i, 'grams', Number(e.target.value))} />
                   <div className="col-span-6 flex justify-end">
-                    {items.length>1 && <button className="text-xs text-rose-400 hover:underline" onClick={()=>removeRow(i)}>Remove</button>}
+                    {items.length > 1 && <button className="text-xs text-rose-400 hover:underline" onClick={() => removeRow(i)}>Remove</button>}
                   </div>
                 </div>
               ))}
