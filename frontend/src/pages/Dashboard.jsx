@@ -63,6 +63,7 @@ export default function Dashboard() {
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 space-y-6">
             {/* Header */}
+            <Navbar></Navbar>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <input
