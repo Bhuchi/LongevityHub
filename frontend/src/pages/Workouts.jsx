@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
+import { Search, Plus } from "lucide-react";
 
 /* ---- demo helpers ---- */
 const LS_KEY = "lh_workouts";
 const TYPES = ["Run", "Walk", "Bike", "Strength", "Swim", "Yoga"];
 const INTENSITY = [
-  { id: "easy",     label: "Easy",     factor: 1.0 },
+  { id: "easy", label: "Easy", factor: 1.0 },
   { id: "moderate", label: "Moderate", factor: 1.5 },
-  { id: "hard",     label: "Hard",     factor: 2.0 },
+  { id: "hard", label: "Hard", factor: 2.0 },
 ];
 
 /* time helpers */
@@ -72,21 +73,33 @@ export default function Workouts() {
   return (
     <Layout>
       {/* header */}
+
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Workouts</h1>
+          <h1 className="text-2xl font-bold text-slate-100">Workouts</h1>
           <div className="text-slate-400 text-sm">
-            Log sessions and see weekly totals (demo, saved in your browser)
+            Track your workouts, sets, and duration (demo stored locally)
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search type, note, intensity…"
-            className="inp w-64"
-          />
-          <button className="btn" onClick={() => setShow(true)}>
+
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 w-64 shadow-sm hover:border-slate-600 transition">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search workout or notes..."
+              className="bg-transparent outline-none text-sm text-slate-100 placeholder:text-slate-500 w-full"
+            />
+          </div>
+
+          {/* + Log workouts button */}
+          <button
+            onClick={() => setShow(true)}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold text-white shadow-sm transition"
+          >
+            <Plus className="h-4 w-4" />
             Log workout
           </button>
         </div>
@@ -102,7 +115,14 @@ export default function Workouts() {
       {/* list */}
       {filtered.length === 0 ? (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center text-slate-400">
-          No workouts yet. Click <span className="text-sky-400">Log workout</span> to add your first one.
+          No workouts yet. Click{" "}
+          <button
+            onClick={() => setShow(true)}
+            className="text-sky-400 hover:underline font-medium"
+          >
+            Log workout
+          </button>{" "}
+          to add one.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -232,11 +252,10 @@ function QuickLog({ onClose, onSave }) {
                   key={i.id}
                   type="button"
                   onClick={() => setIntensity(i.id)}
-                  className={`px-3 py-2 rounded-xl text-sm ${
-                    intensity === i.id
-                      ? "bg-sky-600 text-white"
-                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                  }`}
+                  className={`px-3 py-2 rounded-xl text-sm ${intensity === i.id
+                    ? "bg-sky-600 text-white"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    }`}
                 >
                   {i.label}
                 </button>

@@ -1,3 +1,28 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+.inp {
+  width: 100%;
+  background-color: #0f172a; /* slate-900 */
+  color: #e2e8f0; /* slate-200 */
+  border: 1px solid #334155; /* slate-700 */
+  border-radius: 0.5rem; /* rounded-lg */
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inp::placeholder {
+  color: #64748b; /* slate-500 */
+}
+
+.inp:focus {
+  border-color: #38bdf8; /* sky-400 */
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+
+.inp:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
