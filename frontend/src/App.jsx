@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Profile from "./pages/Profile.jsx";
@@ -14,17 +14,7 @@ import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import AdminFood from "./pages/admin/AdminFoods.jsx";
 import AdminNutrients from "./pages/admin/AdminNutrients.jsx";
 import AdminAnalytics from "./pages/admin/AdminAnalytics.jsx";
-
-function Home() {
-  return (
-    <div style={{ padding: 24, color: "#e2e8f0", background: "#0f172a", minHeight: "100vh" }}>
-      <h1>Dashboard (Home)</h1>
-      <p>
-        Go to <Link to="/login" style={{ color: "#38bdf8" }}>Login</Link>
-      </p>
-    </div>
-  );
-}
+import Chatbot from "./Chatbot.jsx"; // ✅ import chatbot
 
 export default function App() {
   return (
@@ -47,6 +37,9 @@ export default function App() {
         <Route path="/admin/nutrients" element={<AdminNutrients />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
       </Routes>
+
+      {/* ✅ ให้ chatbot ลอยอยู่ทุกหน้า */}
+      <Chatbot />
     </BrowserRouter>
   );
 }
