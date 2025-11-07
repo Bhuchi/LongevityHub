@@ -32,6 +32,20 @@ export default function Dashboard() {
     const [showLogModal, setShowLogModal] = useState(false);
     const [logType, setLogType] = useState(null);
 
+    // ---- API base for MAMP ----
+    const API_BASE = "http://localhost:8888/";
+
+    // POST: create workout
+    async function postWorkout(payload) {
+        const res = await fetch(`${API_BASE}/workouts/create.php`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        return res.json();
+    }
+
+
     const data = [
         { day: "10-01", protein: 80 },
         { day: "10-03", protein: 96 },
