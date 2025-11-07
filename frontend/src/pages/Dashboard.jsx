@@ -24,7 +24,9 @@ import {
 import { Link } from "react-router-dom";
 import LogModal from "../components/LogModal.jsx";
 import Navbar from "../components/Navbar";
-
+import NewMealModal from "../pages/NewMealModal.jsx";
+import NewWorkoutModal from "../pages/NewWorkoutModal";
+import NewSleepModal from "../pages/NewSleepModal";
 
 export default function Dashboard() {
     const [showLogModal, setShowLogModal] = useState(false);
@@ -348,48 +350,45 @@ export default function Dashboard() {
                         <h2 className="text-lg font-semibold">Shortcuts</h2>
                     </div>
                     <div className="flex gap-3 flex-wrap">
-                        {[
-                            { label: "Log meal", type: "meal" },
-                            { label: "Log workout", type: "workout" },
-                            { label: "Log sleep", type: "sleep" },
-                        ].map((btn) => (
-                            <button
-                                key={btn.label}
-                                onClick={async () => {
-                                    if (btn.type === "workout") {
-                                        // 👇 Quick one-click log (example: 30min moderate)
-                                        const payload = {
-                                            user_id: 1,
-                                            minutes: 30,
-                                            effort: 45, // effort ~ minutes × factor (moderate ~1.5 → 30×1.5=45)
-                                            started_at: new Date().toISOString().slice(0, 16), // "YYYY-MM-DDTHH:mm"
-                                            notes: "Quick log from dashboard",
-                                        };
-                                        try {
-                                            const data = await postWorkout(payload);
-                                            if (data.ok) {
-                                                alert("✅ Workout saved!");
-                                            } else {
-                                                alert(`❌ Error: ${data.error || "Unknown error"}`);
-                                            }
-                                        } catch (e) {
-                                            alert("❌ Network error");
-                                        }
-                                        return;
-                                    }
+                        {/* Log meal → open dashboard modal on meal */}
+                        <button
+                            onClick={() => {
+                                setLogType("meal");
+                                setShowLogModal(true);
+                            }}
+                            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold text-white shadow-sm transition"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Log meal
+                        </button>
 
-                                    // For other types, keep showing the modal as before
-                                    setLogType(btn.type);
-                                    setShowLogModal(true);
-                                }}
-                                className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-sm"
-                            >
-                                {btn.label}
-                            </button>
-                        ))}
+                        {/* Log workout */}
+                        <button
+                            onClick={() => {
+                                setLogType("workout");
+                                setShowLogModal(true);
+                            }}
+                            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold text-white shadow-sm transition"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Log workout
+                        </button>
+
+                        {/* Log sleep */}
+                        <button
+                            onClick={() => {
+                                setLogType("sleep");     // 👈 must match the check above
+                                setShowLogModal(true);
+                            }}
+                            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold text-white shadow-sm transition"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Log sleep
+                        </button>
 
                     </div>
                 </Card>
+
 
 
 
@@ -408,14 +407,42 @@ export default function Dashboard() {
                 </Card>
             </div>
             {/* Modal */}
-            <LogModal
-                isOpen={showLogModal}
-                onClose={() => {
-                    setShowLogModal(false);
-                    setLogType(null);
-                }}
-                type={logType}
-            />
+            {showLogModal && logType === "meal" && (
+                <NewMealModal
+                    onClose={() => {
+                        setShowLogModal(false);
+                        setLogType(null);
+                    }}
+                    onSave={(data) => {
+                        // you can push to a dashboard list here if you want
+                        console.log("meal saved from dashboard", data);
+                    }}
+                />
+            )}
+
+            {/* show meal modal when logType === "meal" */}
+            {showLogModal && logType === "meal" && (
+                <NewMealModal
+                    onClose={() => {
+                        setShowLogModal(false);
+                        setLogType(null);
+                    }}
+                />
+            )}
+
+            {/* fall back to your old dashboard log modal for other types */}
+            {showLogModal && logType !== "meal" && (
+                <LogModal
+                    isOpen={showLogModal}
+                    onClose={() => {
+                        setShowLogModal(false);
+                        setLogType(null);
+                    }}
+                    type={logType}
+                />
+            )}
+
+
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import { Search } from "lucide-react";
+import { Link, useLocation  } from "react-router-dom";
 
 const LS_KEY = "lh_sleep";
 
@@ -24,6 +25,7 @@ export default function Sleep() {
   const [logs, setLogs] = useState([]); // [{id, start, end, hours, quality, note}]
   const [show, setShow] = useState(false);
   const [q, setQ] = useState("");
+  const location = useLocation();
 
   // load from localStorage
   useEffect(() => {
@@ -35,6 +37,11 @@ export default function Sleep() {
   useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify(logs));
   }, [logs]);
+   useEffect(() => {
+      if (location.state?.openLog === "meal") {
+        setShowNew(true);
+      }
+    }, [location.state]);
 
   function addLog(log) {
     setLogs((v) => [{ ...log, id: Date.now() }, ...v]);

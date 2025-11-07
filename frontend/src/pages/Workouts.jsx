@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import { Search, Plus } from "lucide-react";
+import { Link, useLocation  } from "react-router-dom";
 
 const API_BASE = "http://localhost:8888/";
 
@@ -39,6 +40,7 @@ export default function Workouts() {
   const [rows, setRows] = useState([]); // [{id, start, minutes, type, intensity, note, effort}]
   const [q, setQ] = useState("");
   const [show, setShow] = useState(false);
+  const location = useLocation();
 
   // load/save
   useEffect(() => {
@@ -48,6 +50,11 @@ export default function Workouts() {
   useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify(rows));
   }, [rows]);
+ useEffect(() => {
+    if (location.state?.openLog === "meal") {
+      setShowNew(true);
+    }
+  }, [location.state]);
 
   function addRow(r) { setRows((v) => [{ ...r, id: Date.now() }, ...v]); }
   function delRow(id) { setRows((v) => v.filter((x) => x.id !== id)); }

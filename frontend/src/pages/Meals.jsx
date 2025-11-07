@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
-import { Link } from "react-router-dom";
+import { Link, useLocation  } from "react-router-dom";
 import { Search, Plus } from "lucide-react";
 
 /* ---------- demo foods catalog (per 100g) ---------- */
@@ -34,6 +34,8 @@ export default function Meals() {
   const [meals, setMeals] = useState([]); // [{id, at, note, items, totals}]
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const location = useLocation();
+
 
   // load/save localStorage
   useEffect(() => {
@@ -43,6 +45,11 @@ export default function Meals() {
   useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify(meals));
   }, [meals]);
+   useEffect(() => {
+    if (location.state?.openLog === "meal") {
+      setShowNew(true);
+    }
+  }, [location.state]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return meals;

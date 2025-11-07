@@ -4,7 +4,32 @@ import { X, Utensils, Dumbbell, Moon, Watch } from "lucide-react";
 
 export default function LogModal({ isOpen, onClose, type: initialType }) {
   const [activeType, setActiveType] = useState("");
+   if (!isOpen) return null;
 
+  // show the matching full form:
+  if (type === "meal") {
+    return <NewMealModal onClose={onClose} onSave={(data) => {
+      // optional: you can push to dashboard state here
+      onClose();
+    }} />;
+  }
+
+  if (type === "workout") {
+    return <NewWorkoutModal onClose={onClose} onSave={(data) => {
+      // optional: you can push to dashboard state here
+      onClose();
+    }} />;
+  }
+
+  if (type === "sleep") {
+    return <NewSleepModal onClose={onClose} onSave={(data) => {
+      // optional: you can push to dashboard state here
+      onClose();
+    }} />;
+  }
+
+  // if no type, you can show your old chooser or nothing
+  return null;
   // decide what to show when the modal opens
   useEffect(() => {
     if (isOpen) {
