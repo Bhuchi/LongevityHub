@@ -1,36 +1,30 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { apiPost } from "../api";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [msg, setMsg]           = useState("");
+  const [busy, setBusy]         = useState(false);
   const navigate = useNavigate();
 
   async function handleLogin(e) {
     e.preventDefault();
-    setBusy(true);
     setMsg("");
 
-    // Demo delay
-    await new Promise((r) => setTimeout(r, 600));
-
-    if (email && password) {
-      setMsg("✅ Logged in (demo)");
-      navigate("/");
-    } else {
-      setMsg("Please enter email and password");
+    try {
+      setBusy(true);
+      const data = await apiPost("/login.php", { email, password });
+      // persist user client-side
+      localStorage.setItem("lh_user", JSON.stringify(data.user));
+      setMsg("✅ Logged in");
+      navigate("/"); // or wherever
+    } catch (err) {
+      setMsg(err.message || "Login failed");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
-
-    // after successful demo login:
-    localStorage.setItem("lh_user", JSON.stringify({ email, role: "member" })); // or "admin"
-    navigate("/");
-
-    localStorage.removeItem("lh_user");
-
-
   }
 
   return (

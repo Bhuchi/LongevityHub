@@ -30,6 +30,20 @@ export default function Dashboard() {
     const [showLogModal, setShowLogModal] = useState(false);
     const [logType, setLogType] = useState(null);
 
+    // ---- API base for MAMP ----
+    const API_BASE = "http://localhost:8888/";
+
+    // POST: create workout
+    async function postWorkout(payload) {
+        const res = await fetch(`${API_BASE}/workouts/create.php`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        return res.json();
+    }
+
+
     const data = [
         { day: "10-01", protein: 80 },
         { day: "10-03", protein: 96 },
@@ -341,8 +355,31 @@ export default function Dashboard() {
                         ].map((btn) => (
                             <button
                                 key={btn.label}
-                                onClick={() => {
-                                    setLogType(btn.type);       // 👈 open directly
+                                onClick={async () => {
+                                    if (btn.type === "workout") {
+                                        // 👇 Quick one-click log (example: 30min moderate)
+                                        const payload = {
+                                            user_id: 1,
+                                            minutes: 30,
+                                            effort: 45, // effort ~ minutes × factor (moderate ~1.5 → 30×1.5=45)
+                                            started_at: new Date().toISOString().slice(0, 16), // "YYYY-MM-DDTHH:mm"
+                                            notes: "Quick log from dashboard",
+                                        };
+                                        try {
+                                            const data = await postWorkout(payload);
+                                            if (data.ok) {
+                                                alert("✅ Workout saved!");
+                                            } else {
+                                                alert(`❌ Error: ${data.error || "Unknown error"}`);
+                                            }
+                                        } catch (e) {
+                                            alert("❌ Network error");
+                                        }
+                                        return;
+                                    }
+
+                                    // For other types, keep showing the modal as before
+                                    setLogType(btn.type);
                                     setShowLogModal(true);
                                 }}
                                 className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-sm"
@@ -350,6 +387,7 @@ export default function Dashboard() {
                                 {btn.label}
                             </button>
                         ))}
+
                     </div>
                 </Card>
 

@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import { Search, Plus } from "lucide-react";
 
+const API_BASE = "http://localhost:8888/";
+
+
 /* ---- demo helpers ---- */
 const LS_KEY = "lh_workouts";
 const TYPES = ["Run", "Walk", "Bike", "Strength", "Swim", "Yoga"];

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { apiPost } from "../api";
 
 export default function Register() {
   const [fullName, setFullName] = useState("");
@@ -13,25 +14,22 @@ export default function Register() {
   async function handleRegister(e) {
     e.preventDefault();
     setMsg("");
-    if (!fullName || !email || !password || !confirm) {
-      setMsg("Please fill in all fields"); return;
-    }
-    if (password.length < 6) {
-      setMsg("Password must be at least 6 characters"); return;
-    }
-    if (password !== confirm) {
-      setMsg("Passwords do not match"); return;
-    }
 
-    setBusy(true);
-    // Demo: fake server delay
-    await new Promise(r => setTimeout(r, 700));
+    if (!fullName || !email || !password || !confirm) return setMsg("Please fill in all fields");
+    if (password.length < 6) return setMsg("Password must be at least 6 characters");
+    if (password !== confirm) return setMsg("Passwords do not match");
 
-    // Demo success — normally you’d POST to /api/register.php
-    setBusy(false);
-    setMsg("✅ Account created (demo). Redirecting to login…");
-    setTimeout(() => navigate("/login"), 800);
-  }
+    try {
+      setBusy(true);
+      await apiPost("/register.php", { full_name: fullName, email, password });
+      setMsg("✅ Account created. Redirecting to login…");
+      setTimeout(() => navigate("/login"), 800);
+    } catch (err) {
+      setMsg(err.message || "Register failed");
+    } finally {
+      setBusy(false);
+    }
+  }  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
