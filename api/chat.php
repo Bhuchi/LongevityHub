@@ -3,84 +3,112 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 header("Content-Type: application/json; charset=utf-8");
-header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 
-require_once __DIR__ . "/config.php";
+require_once __DIR__ . "/config.php";  // must define $pdo and GEMINI_API_KEY
 
-// 📥 รับข้อความจาก Frontend
-$input = json_decode(file_get_contents("php://input"), true);
+// --- Input ---
+$input   = json_decode(file_get_contents("php://input"), true) ?: [];
 $message = trim($input["message"] ?? "");
+$user_id = intval($input["user_id"] ?? 1);   // TODO: replace with logged-in user
+
 if ($message === "") {
-  echo json_encode(["error" => "❗ Message required"]);
-  exit;
+  echo json_encode(["error" => "Message required"]); exit;
 }
 
 $queryData = "";
-
 try {
-  // 🥗 MEALS
+  // ---- MEALS (list last 5 meals by time + note; detailed macros usually need joins) ----
   if (stripos($message, "meal") !== false || stripos($message, "อาหาร") !== false) {
-    $stmt = $pdo->query("SELECT meal_name, protein, fiber, meal_date 
-                         FROM meals ORDER BY meal_date DESC LIMIT 5");
-    $rows = $stmt->fetchAll();
+    // if you have meals table: meals(meal_id, user_id, at, note)
+    $st = $pdo->prepare("
+      SELECT at, note
+      FROM meals
+      WHERE user_id = ?
+      ORDER BY at DESC
+      LIMIT 5
+    ");
+    $st->execute([$user_id]);
+    $rows = $st->fetchAll();
     if ($rows) {
-      $queryData = "📋 ข้อมูลมื้ออาหารล่าสุด:\n";
+      $queryData = "📋 มื้ออาหารล่าสุดของคุณ:\n";
       foreach ($rows as $r) {
-        $queryData .= "- {$r['meal_date']} : {$r['meal_name']} ({$r['protein']} g โปรตีน, {$r['fiber']} g ไฟเบอร์)\n";
+        $dt = date('Y-m-d H:i', strtotime($r['at']));
+        $note = $r['note'] ? " – ".$r['note'] : "";
+        $queryData .= "- {$dt}{$note}\n";
       }
+      // If you later add a view for daily protein/fiber, append summary here.
     } else {
-      $queryData = "ไม่มีข้อมูลมื้ออาหารในฐานข้อมูล.";
+      $queryData = "ยังไม่มีข้อมูลมื้ออาหารในฐานข้อมูล";
     }
   }
 
-  // 🏋 WORKOUTS
+  // ---- WORKOUTS (uses your real columns) ----
   if (stripos($message, "workout") !== false || stripos($message, "ออกกำลังกาย") !== false) {
-    $stmt = $pdo->query("SELECT workout_name, duration, effort_score, workout_date 
-                         FROM workouts ORDER BY workout_date DESC LIMIT 5");
-    $rows = $stmt->fetchAll();
+    $st = $pdo->prepare("
+      SELECT started_at, duration_min, intensity, note
+      FROM workouts
+      WHERE user_id = ?
+      ORDER BY started_at DESC
+      LIMIT 5
+    ");
+    $st->execute([$user_id]);
+    $rows = $st->fetchAll();
     if ($rows) {
-      $queryData = "💪 ข้อมูลการออกกำลังกายล่าสุด:\n";
+      $queryData = "💪 การออกกำลังกายล่าสุดของคุณ:\n";
       foreach ($rows as $r) {
-        $queryData .= "- {$r['workout_date']} : {$r['workout_name']} {$r['duration']} นาที (effort {$r['effort_score']})\n";
+        $dt = date('Y-m-d H:i', strtotime($r['started_at']));
+        $int = $r['intensity'] ?? 'n/a';
+        $note = $r['note'] ? " – ".$r['note'] : "";
+        $queryData .= "- {$dt}: {$r['duration_min']} นาที • {$int}{$note}\n";
       }
     } else {
-      $queryData = "ไม่มีข้อมูลการออกกำลังกายในฐานข้อมูล.";
+      $queryData = "ยังไม่มีข้อมูลการออกกำลังกายในฐานข้อมูล";
     }
   }
 
-  // 😴 SLEEP
+  // ---- SLEEP (table is sleep_sessions with started_at/ended_at) ----
   if (stripos($message, "sleep") !== false || stripos($message, "นอน") !== false) {
-    $stmt = $pdo->query("SELECT sleep_date, hours, quality 
-                         FROM sleep ORDER BY sleep_date DESC LIMIT 5");
-    $rows = $stmt->fetchAll();
+    $st = $pdo->prepare("
+      SELECT started_at, ended_at
+      FROM sleep_sessions
+      WHERE user_id = ?
+      ORDER BY started_at DESC
+      LIMIT 5
+    ");
+    $st->execute([$user_id]);
+    $rows = $st->fetchAll();
     if ($rows) {
-      $queryData = "🛌 ข้อมูลการนอนล่าสุด:\n";
+      $queryData = "🛌 ข้อมูลการนอนล่าสุดของคุณ:\n";
       foreach ($rows as $r) {
-        $queryData .= "- {$r['sleep_date']} : {$r['hours']} ชั่วโมง (คุณภาพ {$r['quality']})\n";
+        $start = strtotime($r['started_at']);
+        $end   = strtotime($r['ended_at']);
+        $hours = $end > $start ? round(($end - $start) / 3600, 1) : 0;
+        $queryData .= "- ".date('Y-m-d H:i', $start)." → ".date('H:i', $end)." • {$hours} ชม.\n";
       }
     } else {
-      $queryData = "ไม่มีข้อมูลการนอนในฐานข้อมูล.";
+      $queryData = "ยังไม่มีข้อมูลการนอนในฐานข้อมูล";
     }
   }
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
   $queryData = "⚠️ Database error: " . $e->getMessage();
 }
 
-// 🧠 เตรียม prompt ส่งให้ Gemini
+// --- Build prompt ---
 $prompt = "You are the LongevityHub AI assistant. Answer clearly and kindly in Thai.\n\n"
-        . "User asked: $message\n\n"
-        . "Here is recent data from the LongevityHub database:\n"
-        . ($queryData ?: "ไม่มีข้อมูลที่เกี่ยวข้องในฐานข้อมูล");
+        . "User asked: {$message}\n\n"
+        . "Recent data from the LongevityHub database (user_id={$user_id}):\n"
+        . ($queryData ?: "— ไม่มีข้อมูลที่เกี่ยวข้อง —");
 
-// 🚀 เรียก Gemini API (เวอร์ชันใหม่ v1)
-$url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" . GEMINI_API_KEY;
-
+// --- Call Gemini ---
+$url  = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" . GEMINI_API_KEY;
 $body = json_encode([
   "contents" => [[
-    "role" => "user",
+    "role"  => "user",
     "parts" => [["text" => $prompt]]
   ]]
 ], JSON_UNESCAPED_UNICODE);
@@ -88,27 +116,19 @@ $body = json_encode([
 $ch = curl_init($url);
 curl_setopt_array($ch, [
   CURLOPT_RETURNTRANSFER => true,
-  CURLOPT_POST => true,
-  CURLOPT_HTTPHEADER => ["Content-Type: application/json"],
-  CURLOPT_POSTFIELDS => $body,
+  CURLOPT_POST           => true,
+  CURLOPT_HTTPHEADER     => ["Content-Type: application/json"],
+  CURLOPT_POSTFIELDS     => $body,
+  CURLOPT_TIMEOUT        => 20
 ]);
-
 $response = curl_exec($ch);
 if (curl_errno($ch)) {
-  echo json_encode(["reply" => "⚠️ cURL error: " . curl_error($ch)], JSON_UNESCAPED_UNICODE);
+  echo json_encode(["reply" => $queryData ?: ("⚠️ cURL error: " . curl_error($ch))], JSON_UNESCAPED_UNICODE);
   exit;
 }
 curl_close($ch);
 
 $data = json_decode($response, true);
+$reply = $data["candidates"][0]["content"]["parts"][0]["text"] ?? $queryData ?: "❌ Gemini ไม่ตอบกลับ";
 
-// ✅ ตรวจว่าได้ข้อความจาก Gemini หรือไม่
-if (isset($data["candidates"][0]["content"]["parts"][0]["text"])) {
-  $reply = $data["candidates"][0]["content"]["parts"][0]["text"];
-} else {
-  $reply = "❌ ไม่สามารถเชื่อมต่อกับ Gemini ได้ในตอนนี้\n\n" 
-         . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-}
-
-// ✅ ส่งกลับให้ frontend
 echo json_encode(["reply" => $reply], JSON_UNESCAPED_UNICODE);

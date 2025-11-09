@@ -24,9 +24,6 @@ import {
 import { Link } from "react-router-dom";
 import LogModal from "../components/LogModal.jsx";
 import Navbar from "../components/Navbar";
-import NewMealModal from "../pages/NewMealModal.jsx";
-import NewWorkoutModal from "../pages/NewWorkoutModal";
-import NewSleepModal from "../pages/NewSleepModal";
 
 export default function Dashboard() {
     const [showLogModal, setShowLogModal] = useState(false);

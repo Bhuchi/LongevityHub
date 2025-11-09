@@ -1,27 +1,16 @@
 <?php
-
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost:5173'); // Vite dev
-header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
-
-
-header('Content-Type: application/json');
-require __DIR__.'/config.php';
+require __DIR__ . '/config.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   http_response_code(405);
-  echo json_encode(['error'=>'POST required']); exit;
+  echo json_encode(['error' => 'POST required']); exit;
 }
 
-$raw  = file_get_contents('php://input');
-$data = json_decode($raw, true);
+$body = json_decode(file_get_contents('php://input'), true) ?? [];
+$email = trim((string)($body['email'] ?? ''));
+$pass  = (string)($body['password'] ?? '');
 
-$email    = trim($data['email'] ?? '');
-$password = $data['password'] ?? '';
-
-if (!$email || !$password) {
+if ($email === '' || $pass === '') {
   http_response_code(400);
   echo json_encode(['error'=>'Missing fields']); exit;
 }
@@ -31,13 +20,23 @@ try {
   $st->execute([$email]);
   $u = $st->fetch();
 
-  if (!$u || !password_verify($password, $u['password_hash'])) {
+  if (!$u || !password_verify($pass, $u['password_hash'])) {
     http_response_code(401);
     echo json_encode(['error'=>'Invalid credentials']); exit;
   }
 
-  unset($u['password_hash']);
-  echo json_encode(['ok'=>true,'user'=>$u]);
+  // build the session user (match names you already use)
+  $sessUser = [
+    'user_id'   => (int)$u['user_id'],
+    'full_name' => $u['full_name'],
+    'email'     => $u['email'],
+    'role'      => $u['role'],          // 'member' | 'premium' | 'admin'
+    'tz'        => $u['tz'] ?? 'UTC',
+  ];
+  $_SESSION['user'] = $sessUser;
+
+  // reply (you also keep a copy in localStorage if you want)
+  echo json_encode(['ok'=>true,'user'=>$sessUser]);
 } catch (Throwable $e) {
   http_response_code(500);
   echo json_encode(['error'=>'server','details'=>$e->getMessage()]);
