@@ -1,23 +1,34 @@
-// frontend/src/api.js
-export const API_BASE = "http://localhost:8888"; // MAMP backend
+const API_BASE = "http://localhost:8888";
+
+async function handle(res) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.error) throw new Error(data?.error || res.statusText);
+  return data;
+}
+
+export async function apiGet(path) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    credentials: "include",
+  });
+  return handle(res);
+}
 
 export async function apiPost(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(body),
   });
+  return handle(res);
+}
 
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    throw new Error("Invalid JSON response");
-  }
-
-  if (!res.ok || (data && data.error)) {
-    throw new Error(data.error || `HTTP ${res.status}`);
-  }
-
-  return data;
+/* ⬇️ No headers, no body for DELETE */
+export async function apiDelete(path) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return handle(res);
 }
