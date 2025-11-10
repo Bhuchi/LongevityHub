@@ -32,3 +32,15 @@ export async function apiDelete(path) {
   });
   return handle(res);
 }
+
+export async function apiPut(path, body) {
+  const res = await fetch(`http://localhost:8888${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.error) throw new Error(data?.error || res.statusText);
+  return data;
+}
