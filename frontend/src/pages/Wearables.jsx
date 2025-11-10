@@ -1,58 +1,80 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
-import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
-const LS_KEY = "lh_wearables";
+const API_URL = "http://localhost:8888"; // ✅ your MAMP root (no /api)
 
-/* helper */
-const fmtDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-
-/* random generator for demo mode */
-function genDemo(days = 10) {
-  const data = [];
-  const today = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    data.push({
-      id: d.toISOString(),
-      date: d.toISOString().split("T")[0],
-      steps: Math.floor(4000 + Math.random() * 6000),
-      heart_rate: Math.floor(60 + Math.random() * 40),
-      calories: Math.floor(1800 + Math.random() * 600),
-    });
-  }
-  return data;
-}
+/* --- Helper --- */
+const fmtDate = (iso) =>
+  new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 
 export default function Wearables() {
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
-  const [demo] = useState(true);
 
+  /* --- Fetch data from MySQL --- */
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
-    if (saved.length === 0 && demo) {
-      const demoRows = genDemo();
-      setRows(demoRows);
-      localStorage.setItem(LS_KEY, JSON.stringify(demoRows));
-    } else setRows(saved);
+    async function load() {
+      try {
+        const res = await fetch(`${API_URL}/get_wearables.php`);
+        const data = await res.json();
+        setRows(data);
+      } catch (err) {
+        console.error("⚠️ Error fetching wearables:", err);
+      }
+    }
+    load();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify(rows));
-  }, [rows]);
+  /* --- Upload CSV file --- */
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
 
+    try {
+      const res = await fetch(`${API_URL}/add_wearables_upload.php`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        alert(`✅ Imported ${data.rows_imported} records`);
+        window.location.reload();
+      } else {
+        alert("❌ Upload failed: " + (data.error || "unknown error"));
+      }
+    } catch (err) {
+      alert("⚠️ Error: " + err.message);
+    }
+  }
+
+  /* --- Compute averages --- */
   const avg = useMemo(() => {
-    if (rows.length === 0) return { steps: 0, heart_rate: 0, calories: 0 };
+    if (rows.length === 0)
+      return { steps: 0, heart_rate: 0, calories: 0 };
+
     const sum = rows.reduce(
       (a, r) => ({
-        steps: a.steps + r.steps,
-        heart_rate: a.heart_rate + r.heart_rate,
-        calories: a.calories + r.calories,
+        steps: a.steps + (r.steps || 0),
+        heart_rate: a.heart_rate + (r.heart_rate || 0),
+        calories: a.calories + (r.calories || 0),
       }),
       { steps: 0, heart_rate: 0, calories: 0 }
     );
+
     const n = rows.length;
     return {
       steps: Math.round(sum.steps / n),
@@ -61,21 +83,14 @@ export default function Wearables() {
     };
   }, [rows]);
 
-  function addRow(r) {
-    setRows((v) => [{ ...r, id: Date.now() }, ...v]);
-  }
-
-  function delRow(id) {
-    setRows((v) => v.filter((x) => x.id !== id));
-  }
-
   return (
     <Layout>
+      {/* --- Header --- */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Wearables</h1>
           <div className="text-slate-400 text-sm">
-            Daily stats from your wearable device (demo mode)
+            Daily stats from your wearable device
           </div>
         </div>
         <button className="btn" onClick={() => setShow(true)}>
@@ -83,19 +98,55 @@ export default function Wearables() {
         </button>
       </div>
 
-      {/* averages */}
+      {/* --- CSV Import Section --- */}
+      <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 mb-6">
+        <div className="flex items-center gap-4">
+          <div className="text-slate-300 flex items-center gap-2">
+            <span>📂</span>
+            <div>
+              <div className="font-semibold">Wearables CSV</div>
+              <div className="text-sm text-slate-400">
+                Import steps / HRV / resting HR from supported devices.
+              </div>
+            </div>
+          </div>
+          <div className="ml-auto flex gap-3">
+            <a
+              href={`${API_URL}/wearable_template.csv`}
+              className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm"
+              download
+            >
+              Download template
+            </a>
+            <label className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-sm text-white cursor-pointer">
+              Upload file
+              <input type="file" accept=".csv" hidden onChange={handleUpload} />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* --- Average Cards --- */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <StatCard label="Avg Steps" value={avg.steps.toLocaleString()} />
         <StatCard label="Avg Heart Rate" value={`${avg.heart_rate} bpm`} />
         <StatCard label="Avg Calories" value={`${avg.calories} kcal`} />
       </div>
 
-      {/* chart */}
+      {/* --- Chart --- */}
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4 mb-6">
-        <div className="text-slate-400 text-sm mb-2">Steps trend (past {rows.length} days)</div>
+        <div className="text-slate-400 text-sm mb-2">
+          Steps trend (past {rows.length} days)
+        </div>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={[...rows].reverse()}>
-            <Line type="monotone" dataKey="steps" stroke="#38bdf8" strokeWidth={2} dot={false} />
+            <Line
+              type="monotone"
+              dataKey="steps"
+              stroke="#38bdf8"
+              strokeWidth={2}
+              dot={false}
+            />
             <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
             <XAxis dataKey="date" tick={{ fill: "#94a3b8", fontSize: 12 }} />
             <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} />
@@ -110,20 +161,20 @@ export default function Wearables() {
         </ResponsiveContainer>
       </div>
 
-      {/* list */}
+      {/* --- Data List --- */}
       {rows.length === 0 ? (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center text-slate-400">
-          No wearable data yet. Click <span className="text-sky-400">Add manual entry</span> to simulate syncing.
+          No wearable data yet. Upload a CSV file or add manually.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {rows.map((r) => (
-            <RowCard key={r.id} row={r} onDelete={() => delRow(r.id)} />
+          {rows.map((r, i) => (
+            <RowCard key={i} row={r} />
           ))}
         </div>
       )}
 
-      {show && <NewEntryModal onClose={() => setShow(false)} onSave={addRow} />}
+      {show && <NewEntryModal onClose={() => setShow(false)} />}
     </Layout>
   );
 }
@@ -138,40 +189,43 @@ function StatCard({ label, value }) {
   );
 }
 
-function RowCard({ row, onDelete }) {
+function RowCard({ row }) {
   return (
     <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="font-semibold">{fmtDate(row.date)}</div>
-          <div className="text-slate-400 text-sm">
-            {row.steps.toLocaleString()} steps · {row.heart_rate} bpm · {row.calories} kcal
-          </div>
+      <div>
+        <div className="font-semibold">{fmtDate(row.date)}</div>
+        <div className="text-slate-400 text-sm">
+          {row.steps?.toLocaleString() || 0} steps · {row.heart_rate || "-"} bpm ·{" "}
+          {row.calories || "-"} kcal
         </div>
-        <button
-          onClick={onDelete}
-          className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs"
-        >
-          Delete
-        </button>
       </div>
     </div>
   );
 }
 
-function NewEntryModal({ onClose, onSave }) {
+/* --- Add Manual Entry Modal --- */
+function NewEntryModal({ onClose }) {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [steps, setSteps] = useState(7000);
   const [heart_rate, setHR] = useState(72);
-  const [calories, setCalories] = useState(2200);
   const [saving, setSaving] = useState(false);
 
   async function save() {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 200));
-    onSave({ date, steps: Number(steps), heart_rate: Number(heart_rate), calories: Number(calories) });
-    setSaving(false);
-    onClose();
+    try {
+      await fetch(`${API_URL}/add_wearable.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, steps, heart_rate, hrv: 70 }),
+      });
+      alert("✅ Entry added successfully");
+      window.location.reload();
+    } catch (err) {
+      alert("⚠️ Error: " + err.message);
+    } finally {
+      setSaving(false);
+      onClose();
+    }
   }
 
   return (
@@ -215,16 +269,6 @@ function NewEntryModal({ onClose, onSave }) {
               className="inp"
               value={heart_rate}
               onChange={(e) => setHR(e.target.value)}
-            />
-          </label>
-
-          <label className="block">
-            <div className="text-sm text-slate-400 mb-1">Calories (kcal)</div>
-            <input
-              type="number"
-              className="inp"
-              value={calories}
-              onChange={(e) => setCalories(e.target.value)}
             />
           </label>
 
