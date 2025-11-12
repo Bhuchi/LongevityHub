@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import {
-  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
-
-/* ---- LS keys from your other pages ---- */
-const LS_WEAR = "lh_wearables"; // [{date, steps, heart_rate, calories}]
-const LS_SLEEP = "lh_sleep";    // [{start, end, hours, quality, note, id}]
-const LS_WO   = "lh_workouts";  // [{start, minutes, type, intensity, effort, id}]
-const LS_MEAL = "lh_meals";     // [{at, items, totals:{protein_g,fiber_g}, id}]
+import { apiGet } from "../api";
 
 /* ---- helpers ---- */
 const isoDate = (d) => d.toISOString().slice(0,10); // YYYY-MM-DD
@@ -25,44 +27,56 @@ function daysBack(n) {
   return arr;
 }
 
-function sumBy(arr, pickDate, pickVal) {
-  // returns { 'YYYY-MM-DD': total }
-  const m = {};
-  for (const x of arr) {
-    const k = pickDate(x);
-    const v = Number(pickVal(x) || 0);
-    m[k] = (m[k] ?? 0) + v;
-  }
-  return m;
-}
-
 /* ---- Trends page ---- */
 export default function Trends() {
   const [range, setRange] = useState(14); // 7 | 14 | 30
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // load once
-  const wear = useMemo(() => JSON.parse(localStorage.getItem(LS_WEAR) || "[]"), []);
-  const sleep = useMemo(() => JSON.parse(localStorage.getItem(LS_SLEEP) || "[]"), []);
-  const wo = useMemo(() => JSON.parse(localStorage.getItem(LS_WO) || "[]"), []);
-  const meals = useMemo(() => JSON.parse(localStorage.getItem(LS_MEAL) || "[]"), []);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await apiGet(`/controllers/trends.php?days=${range}`);
+        if (!active) return;
+        setRows(Array.isArray(res?.rows) ? res.rows : []);
+      } catch (err) {
+        if (!active) return;
+        console.error("Failed to load trends data:", err);
+        setError(err.message || "Failed to load trends data.");
+        setRows([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [range]);
 
-  // aggregate per day
-  const stepsByDay   = useMemo(() => sumBy(wear,   r => r.date,                    r => r.steps), [wear]);
-  const sleepByDay   = useMemo(() => sumBy(sleep,  r => r.end?.slice(0,10),        r => r.hours), [sleep]);
-  const workoutByDay = useMemo(() => sumBy(wo,     r => r.start?.slice(0,10),      r => r.minutes), [wo]);
-  const proteinByDay = useMemo(() => sumBy(meals,  r => (r.at||"").slice(0,10),    r => r.totals?.protein_g || 0), [meals]);
-
-  // build the chart dataset for selected range
   const data = useMemo(() => {
-    const days = daysBack(range);
-    return days.map(d => ({
-      date: d,
-      steps: stepsByDay[d] ?? 0,
-      sleep_h: +(sleepByDay[d] ?? 0).toFixed(2),
-      workout_min: workoutByDay[d] ?? 0,
-      protein_g: +(proteinByDay[d] ?? 0).toFixed(1),
-    }));
-  }, [range, stepsByDay, sleepByDay, workoutByDay, proteinByDay]);
+    const map = Object.create(null);
+    for (const row of rows) {
+      if (row?.day) map[row.day] = row;
+    }
+    return daysBack(range).map(day => {
+      const r = map[day] || {};
+      const steps = Number(r.steps ?? 0);
+      const sleepH = Number(r.sleep_hours ?? 0);
+      const workout = Number(r.workout_min ?? 0);
+      const protein = Number(r.protein_g ?? 0);
+      const score = r.score === null || r.score === undefined ? null : Number(r.score);
+      return {
+        date: day,
+        steps: Number.isFinite(steps) ? steps : 0,
+        sleep_h: Number.isFinite(sleepH) ? Math.round(sleepH * 100) / 100 : 0,
+        workout_min: Number.isFinite(workout) ? workout : 0,
+        protein_g: Number.isFinite(protein) ? Math.round(protein * 10) / 10 : 0,
+        score: Number.isFinite(score) ? score : null,
+      };
+    });
+  }, [rows, range]);
 
   const averages = useMemo(() => {
     const n = data.length || 1;
@@ -87,7 +101,7 @@ export default function Trends() {
         <div>
           <h1 className="text-2xl font-bold">Trends</h1>
           <div className="text-slate-400 text-sm">
-            Aggregated daily data from Wearables, Sleep, Workouts, and Meals (demo)
+            Aggregated daily data from Wearables, Sleep, Workouts, and Meals
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -102,6 +116,21 @@ export default function Trends() {
           ))}
         </div>
       </div>
+
+      {(loading || error) && (
+        <div className="mb-6 space-y-2">
+          {loading && (
+            <div className="rounded-2xl bg-slate-900/60 border border-slate-800 px-4 py-3 text-sm text-slate-300">
+              Loading latest data…
+            </div>
+          )}
+          {error && (
+            <div className="rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-sm text-red-100">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Averages */}
       <div className="grid gap-4 md:grid-cols-4 mb-6">

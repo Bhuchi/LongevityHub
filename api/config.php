@@ -1,14 +1,13 @@
 <?php
-// ---------------- CORS (Vite dev) ----------------
+// ---------------- CORS (Vite dev / local previews) ----------------
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowed = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-if (in_array($origin, $allowed, true)) {
+if ($origin && preg_match('#^https?://(localhost|127\.0\.0\.1)(:\d+)?$#', $origin)) {
   header("Access-Control-Allow-Origin: $origin");
-  header("Access-Control-Allow-Credentials: true");
-  header("Vary: Origin");
+  header('Access-Control-Allow-Credentials: true');
+  header('Vary: Origin');
 }
-header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorization');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -29,6 +28,11 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();
 }
 
+// --------------- Timezone ----------------
+$configuredTz = ini_get('date.timezone');
+$localTz = $configuredTz ?: date_default_timezone_get();
+date_default_timezone_set($localTz);
+
 // --------------- DB (MAMP defaults) ---------------
 $host = "localhost";
 $port = "8889";
@@ -41,6 +45,7 @@ try {
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
   ]);
+  $pdo->exec("SET time_zone = " . $pdo->quote(date('P')));
 } catch (PDOException $e) {
   http_response_code(500);
   echo json_encode(['ok'=>false,'error'=>'db_connect_failed','details'=>$e->getMessage()]);

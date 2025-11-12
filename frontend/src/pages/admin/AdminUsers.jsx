@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
-import { Users, ArrowLeft, Plus, Search, Trash2, Shield } from "lucide-react";
-import Navbar from "../../components/Navbar"; // ✅ use your existing navbar
+import React, { useEffect, useMemo, useState } from "react";
+import { Users, ArrowLeft, Plus, Search, Trash2, Shield, RefreshCw } from "lucide-react";
+import Navbar from "../../components/Navbar";
 import { useNavigate } from "react-router-dom";
+import { apiGet, apiPost, apiDelete } from "../../api";
 
 /* UI helpers */
 const Card = ({ className = "", children }) => (
@@ -32,11 +33,12 @@ const Button = ({ variant = "solid", size = "md", className = "", children, ...p
 const RolePill = ({ role }) => {
   const map = {
     admin: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-    user: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+    premium: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    member: "bg-sky-500/15 text-sky-300 border-sky-500/30",
   };
   return (
-    <span className={`text-xs px-2 py-1 rounded-lg border ${map[role] || "bg-slate-700/30 text-slate-300 border-slate-600/40"}`}>
-      {role}
+    <span className={`text-xs px-2 py-1 rounded-lg border capitalize ${map[role] || "bg-slate-700/30 text-slate-300 border-slate-600/40"}`}>
+      {role || "member"}
     </span>
   );
 };
@@ -44,14 +46,41 @@ const RolePill = ({ role }) => {
 export default function AdminUsers() {
   const navigate = useNavigate();
 
-  // Demo data
-  const [users, setUsers] = useState([
-    { id: 1, name: "John Doe", email: "john@example.com", role: "admin", joined: "2025-10-01" },
-    { id: 2, name: "Sarah Smith", email: "sarah@longevityhub.com", role: "user", joined: "2025-10-02" },
-    { id: 3, name: "David Chen", email: "davidc@gmail.com", role: "user", joined: "2025-10-03" },
-    { id: 4, name: "Emily Brown", email: "emilyb@gmail.com", role: "user", joined: "2025-10-05" },
-  ]);
+  const [users, setUsers] = useState([]);
   const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState("");
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    role: "member",
+    password: "",
+    tz: "Asia/Bangkok",
+  });
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function loadUsers() {
+    setLoading(true);
+    setStatus("");
+    try {
+      const data = await apiGet("/controllers/admin_users.php");
+      const normalized = (data.users || []).map((u) => ({
+        id: Number(u.user_id),
+        name: u.full_name || "(no name)",
+        email: u.email || "",
+        role: u.role || "member",
+        joined: u.created_at ? new Date(u.created_at).toLocaleDateString() : "",
+      }));
+      setUsers(normalized);
+    } catch (err) {
+      setStatus(err.message || "Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     if (!q) return users;
@@ -64,21 +93,28 @@ export default function AdminUsers() {
     );
   }, [users, q]);
 
-  const addUser = () => {
-    const name = prompt("New user's name:");
-    if (!name) return;
-    const email = prompt("Email:");
-    if (!email) return;
-    const role = (prompt("Role (admin/user):", "user") || "user").toLowerCase() === "admin" ? "admin" : "user";
-    const id = Date.now();
-    const joined = new Date().toISOString().slice(0, 10);
-    setUsers([{ id, name: name.trim(), email: email.trim(), role, joined }, ...users]);
-  };
+  async function handleCreate(e) {
+    e.preventDefault();
+    setStatus("");
+    try {
+      await apiPost("/controllers/admin_users.php", form);
+      setForm({ full_name: "", email: "", role: "member", password: "", tz: form.tz });
+      await loadUsers();
+      setStatus("✅ User created");
+    } catch (err) {
+      setStatus(err.message || "Create failed");
+    }
+  }
 
-  const removeUser = (id) => {
+  async function removeUser(id) {
     if (!confirm("Delete this user?")) return;
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-  };
+    try {
+      await apiDelete(`/controllers/admin_users.php?user_id=${id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      alert(err.message || "Delete failed");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -103,13 +139,61 @@ export default function AdminUsers() {
                 <ArrowLeft className="h-4 w-4" />
                 Back to Admin Page
               </Button>
-              <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-1 rounded-lg">Demo</span>
-              <Button onClick={addUser}>
-                <Plus className="h-4 w-4" />
-                Add User
+              <Button variant="ghost" onClick={loadUsers}>
+                <RefreshCw className="h-4 w-4" />
+                Refresh
               </Button>
             </div>
           </div>
+
+          {/* Create form */}
+          <Card className="p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-sky-400" />
+              <div>
+                <div className="font-semibold">Create user</div>
+                <div className="text-xs text-slate-400">Creates a new account with the selected role.</div>
+              </div>
+            </div>
+            <form className="grid gap-3 md:grid-cols-5" onSubmit={handleCreate}>
+              <input
+                className="inp"
+                placeholder="Full name"
+                value={form.full_name}
+                onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+                required
+              />
+              <input
+                className="inp"
+                type="email"
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                required
+              />
+              <select
+                className="inp"
+                value={form.role}
+                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              >
+                <option value="member">Member</option>
+                <option value="premium">Premium</option>
+                <option value="admin">Admin</option>
+              </select>
+              <input
+                className="inp"
+                type="password"
+                placeholder="Temp password"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                required
+              />
+              <Button type="submit" className="w-full">
+                Create user
+              </Button>
+            </form>
+            {status && <div className="text-sm text-slate-300">{status}</div>}
+          </Card>
 
           {/* Search */}
           <Card className="p-4">
@@ -138,7 +222,14 @@ export default function AdminUsers() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((u, i) => (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-6 text-center text-slate-400">
+                        Loading users…
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((u, i) => (
                     <tr
                       key={u.id}
                       className={`border-b border-slate-800/70 ${i % 2 ? "bg-slate-900/30" : "bg-slate-900/10"}`}
@@ -167,8 +258,8 @@ export default function AdminUsers() {
                         </Button>
                       </td>
                     </tr>
-                  ))}
-                  {filtered.length === 0 && (
+                  )))}
+                  {!loading && filtered.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-5 py-6 text-center text-slate-400">
                         No users found for “{q}”.
