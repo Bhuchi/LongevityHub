@@ -18,7 +18,9 @@ const API_URL = "http://localhost:8888/api/chat.php"; // adjust if needed
 
 export default function Chatbot() {
   const user = getUserSafe();
-  const canChat = user?.role === "premium"; // premium can actually send
+  const canChat = ["premium", "admin"].includes(
+    (user?.role || "").toLowerCase()
+  );
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -38,9 +40,13 @@ export default function Chatbot() {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ message: input }),
       });
       const data = await res.json();
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || res.statusText);
+      }
       setMessages([
         ...next,
         { role: "assistant", text: data.reply || "(no reply)" },
@@ -108,8 +114,9 @@ export default function Chatbot() {
                 border: "1px solid #e2e8f0",
               }}
             >
-              🔒 Chat is available for <strong>Premium</strong> members. You can
-              still preview past messages below.
+              🔒 Chat is available for <strong>Admin</strong> or{" "}
+              <strong>Premium</strong> members. You can still preview past
+              messages below.
             </div>
           )}
 
@@ -126,7 +133,7 @@ export default function Chatbot() {
               <div style={{ color: "#888" }}>
                 {canChat
                   ? "Say hi! Ask about your workouts, meals or sleep."
-                  : "Upgrade to Premium to start chatting."}
+                  : "Only Admin or Premium members can start chatting."}
               </div>
             )}
             {messages.map((m, i) => (

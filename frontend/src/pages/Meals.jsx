@@ -4,28 +4,9 @@ import Layout from "../components/Layout";
 import { useLocation } from "react-router-dom";
 import { Search, Plus } from "lucide-react";
 import { apiGet, apiPost, apiDelete } from "../api";
-
-/* foods (per 100g) */
-const FOODS = [
-  { id: 1, name: "Chicken Breast", protein_g: 31, fiber_g: 0 },
-  { id: 2, name: "Oats", protein_g: 10.6, fiber_g: 10 },
-  { id: 3, name: "Orange", protein_g: 0.9, fiber_g: 2.4 },
-  { id: 4, name: "Greek Yogurt", protein_g: 10, fiber_g: 0 },
-  { id: 5, name: "Broccoli", protein_g: 2.8, fiber_g: 2.6 },
-];
+import { FOODS, computeTotals } from "../data/foods";
 
 const fmtDate = (s) => new Date(String(s).replace(" ", "T")).toLocaleString();
-function computeTotals(items) {
-  let protein = 0, fiber = 0;
-  for (const it of items) {
-    const f = FOODS.find(x => x.id === Number(it.food_id));
-    if (!f) continue;
-    const factor = (Number(it.grams) || 0) / 100;
-    protein += (f.protein_g || 0) * factor;
-    fiber += (f.fiber_g || 0) * factor;
-  }
-  return { protein_g: +protein.toFixed(1), fiber_g: +fiber.toFixed(1) };
-}
 function getUser() { try { return JSON.parse(localStorage.getItem("lh_user") || "null"); } catch { return null; } }
 function toLocalInputValue(date = new Date()) {
   const pad = n => String(n).padStart(2, "0");
@@ -85,7 +66,7 @@ export default function Meals() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Meals</h1>
-          <div className="text-slate-400 text-sm">Log meals and auto-calc protein & fiber (writes to DB)</div>
+          <div className="text-slate-400 text-sm">Log meals and auto-calc protein & carbs (writes to DB)</div>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 w-64">
@@ -126,6 +107,7 @@ export default function Meals() {
 }
 
 function MealCard({ meal, onDeleted }) {
+  const carbTotal = meal.totals?.carb_g ?? meal.totals?.fiber_g ?? 0;
   async function handleDelete() {
     try {
       await apiDelete(`/controllers/meals.php?meal_id=${meal.id}`);
@@ -155,7 +137,7 @@ function MealCard({ meal, onDeleted }) {
               <span>{f?.name || "Unknown"} <span className="text-slate-500">• {it.grams} g</span></span>
               <span className="text-slate-500">
                 {(f?.protein_g ?? 0) * (it.grams / 100) > 0 ? `${((f?.protein_g ?? 0) * (it.grams / 100)).toFixed(1)}g P` : ""}
-                {((f?.fiber_g ?? 0) * (it.grams / 100) > 0) && ` · ${((f?.fiber_g ?? 0) * (it.grams / 100)).toFixed(1)}g F`}
+                {((f?.carb_g ?? 0) * (it.grams / 100) > 0) && ` · ${((f?.carb_g ?? 0) * (it.grams / 100)).toFixed(1)}g C`}
               </span>
             </li>
           );
@@ -164,7 +146,7 @@ function MealCard({ meal, onDeleted }) {
 
       <div className="mt-4 rounded-xl bg-slate-950 border border-slate-800 p-3 text-sm">
         <div className="text-slate-400">Totals</div>
-        <div className="font-semibold">{meal.totals.protein_g} g protein · {meal.totals.fiber_g} g fiber</div>
+        <div className="font-semibold">{meal.totals.protein_g} g protein · {carbTotal} g carbs</div>
       </div>
     </div>
   );
@@ -237,7 +219,7 @@ function NewMealModal({ onClose, onSaved }) {
             </div>
 
             <div className="mt-3 text-sm text-slate-300">
-              Totals (auto): <span className="font-semibold">{totals.protein_g} g protein</span> · <span className="font-semibold">{totals.fiber_g} g fiber</span>
+        Totals (auto): <span className="font-semibold">{totals.protein_g} g protein</span> · <span className="font-semibold">{totals.carb_g} g carbs</span>
             </div>
           </div>
 

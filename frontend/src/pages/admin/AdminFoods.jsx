@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Salad,
   ArrowLeft,
@@ -7,9 +7,12 @@ import {
   Search,
   ChevronRight,
   Info,
+  RefreshCw,
+  Trash2,
 } from "lucide-react";
-import Navbar from "../../components/Navbar"; // ✅ use your existing navbar
+import Navbar from "../../components/Navbar";
 import { useNavigate } from "react-router-dom";
+import { apiDelete, apiGet, apiPost, apiPut } from "../../api";
 
 const Card = ({ className = "", children }) => (
   <div className={`rounded-2xl bg-slate-900/60 border border-slate-800 shadow-lg ${className}`}>
@@ -27,6 +30,7 @@ const Button = ({ variant = "solid", size = "md", className = "", children, ...p
     solid: "bg-sky-600 hover:bg-sky-500 text-white",
     ghost: "bg-slate-800/60 hover:bg-slate-800 text-slate-100 border border-slate-700",
     subtle: "bg-slate-900/60 hover:bg-slate-800/70 text-slate-200 border border-slate-700",
+    danger: "bg-rose-600 hover:bg-rose-500 text-white",
   };
   return (
     <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props}>
@@ -38,83 +42,150 @@ const Button = ({ variant = "solid", size = "md", className = "", children, ...p
 export default function AdminFoods() {
   const navigate = useNavigate();
 
-  // Demo data
-  const [foods, setFoods] = useState([
-    { id: 1, name: "Chicken Breast", brand: "", nutrients: { Protein: { amt: 31, unit: "g" }, Fiber: { amt: 0, unit: "g" } } },
-    { id: 2, name: "Oats", brand: "", nutrients: { Protein: { amt: 13, unit: "g" }, Fiber: { amt: 10, unit: "g" } } },
-    { id: 3, name: "Orange", brand: "", nutrients: { Protein: { amt: 1, unit: "g" }, Fiber: { amt: 2.4, unit: "g" } } },
-    { id: 4, name: "Greek Yogurt", brand: "Fage", nutrients: { Protein: { amt: 10, unit: "g" }, Fiber: { amt: 0, unit: "g" } } },
-    { id: 5, name: "Broccoli", brand: "", nutrients: { Protein: { amt: 2.8, unit: "g" }, Fiber: { amt: 2.6, unit: "g" } } },
-  ]);
-  const [selectedId, setSelectedId] = useState(1);
-  const [saving, setSaving] = useState(false);
-
+  const [foods, setFoods] = useState([]);
+  const [nutrients, setNutrients] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
   const [query, setQuery] = useState("");
-  const [newBrand, setNewBrand] = useState("");
-  const [nutrientDraft, setNutrientDraft] = useState({}); // { Protein: { amt, unit }, ... }
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+  const [nameDraft, setNameDraft] = useState("");
+  const [brandDraft, setBrandDraft] = useState("");
+  const [nutrientDraft, setNutrientDraft] = useState({});
+  const [newFood, setNewFood] = useState({ name: "", brand: "" });
 
-  const units = useMemo(() => ["g", "mg", "mcg", "kcal"], []);
+  const unitOptions = useMemo(
+    () => Array.from(new Set(nutrients.map((n) => n.unit))).filter(Boolean),
+    [nutrients]
+  );
+
+  useEffect(() => {
+    loadFoods();
+  }, []);
+
+  async function loadFoods() {
+    setLoading(true);
+    setStatus("");
+    try {
+      const data = await apiGet("/controllers/admin_foods.php");
+      const normalizedFoods = (data.foods || []).map((f) => ({
+        id: Number(f.id ?? f.food_id),
+        name: f.name,
+        brand: f.brand || "",
+        nutrients: (f.nutrients || []).map((n) => ({
+          nutrient_id: Number(n.nutrient_id ?? n.id),
+          name: n.name,
+          unit: n.unit,
+          amount: Number(n.amount ?? n.amount_per_100g ?? 0),
+        })),
+      }));
+      setFoods(normalizedFoods);
+      setNutrients(
+        (data.nutrients || []).map((n) => ({
+          id: Number(n.id ?? n.nutrient_id),
+          name: n.name,
+          unit: n.unit,
+        }))
+      );
+      if (normalizedFoods.length === 0) {
+        setSelectedId(null);
+      } else if (!selectedId || normalizedFoods.every((f) => f.id !== selectedId)) {
+        setSelectedId(normalizedFoods[0].id);
+      }
+    } catch (err) {
+      setStatus(err.message || "Failed to load foods");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const selected = foods.find((f) => f.id === selectedId);
+
   const displayFoods = useMemo(() => {
-    if (!query) return foods;
+    if (!query.trim()) return foods;
+    const needle = query.toLowerCase();
     return foods.filter((f) =>
-      `${f.name} ${f.brand}`.toLowerCase().includes(query.toLowerCase())
+      `${f.name} ${f.brand}`.toLowerCase().includes(needle)
     );
   }, [foods, query]);
 
-  // sync draft with selected
-  React.useEffect(() => {
-    if (!selected) return;
-    const draft = Object.fromEntries(
-      Object.entries(selected.nutrients).map(([k, v]) => [
-        k,
-        { amt: v.amt, unit: v.unit },
-      ])
-    );
+  useEffect(() => {
+    if (!selected) {
+      setNameDraft("");
+      setBrandDraft("");
+      setNutrientDraft({});
+      return;
+    }
+    setNameDraft(selected.name);
+    setBrandDraft(selected.brand);
+    const draft = {};
+    nutrients.forEach((n) => {
+      const hit = selected.nutrients.find((x) => x.nutrient_id === n.id);
+      draft[n.id] = hit ? String(hit.amount) : "";
+    });
     setNutrientDraft(draft);
-    setNewBrand(selected.brand || "");
-  }, [selectedId]); // eslint-disable-line
+  }, [selectedId, foods, nutrients, selected]);
 
-  const handleNutrientChange = (key, field, value) => {
-    setNutrientDraft((prev) => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        [field]: field === "amt" ? (value === "" ? "" : Number(value)) : value,
-      },
-    }));
+  const handleNutrientChange = (nutrientId, value) => {
+    setNutrientDraft((prev) => ({ ...prev, [nutrientId]: value }));
   };
 
-  const handleSave = async () => {
+  async function handleSave() {
     if (!selected) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600)); // demo
-    setFoods((prev) =>
-      prev.map((f) =>
-        f.id === selected.id
-          ? { ...f, brand: newBrand.trim(), nutrients: nutrientDraft }
-          : f
-      )
-    );
-    setSaving(false);
-  };
+    setStatus("");
+    try {
+      await apiPut("/controllers/admin_foods.php", {
+        food_id: selected.id,
+        name: nameDraft.trim(),
+        brand: brandDraft.trim(),
+        nutrients: Object.entries(nutrientDraft).map(([nid, amt]) => ({
+          nutrient_id: Number(nid),
+          amount: Number(amt) || 0,
+        })),
+      });
+      setStatus("✅ Saved");
+      await loadFoods();
+    } catch (err) {
+      setStatus(err.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
 
-  const addFood = () => {
-    const name = prompt("Food name:");
-    if (!name) return;
-    const id = Date.now();
-    setFoods([{ id, name: name.trim(), brand: "", nutrients: {} }, ...foods]);
-    setSelectedId(id);
-  };
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!newFood.name.trim()) return;
+    try {
+      const res = await apiPost("/controllers/admin_foods.php", {
+        name: newFood.name.trim(),
+        brand: newFood.brand.trim(),
+      });
+      setNewFood({ name: "", brand: "" });
+      await loadFoods();
+      if (res?.food_id) setSelectedId(Number(res.food_id));
+    } catch (err) {
+      alert(err.message || "Create failed");
+    }
+  }
+
+  async function deleteFood() {
+    if (!selected) return;
+    if (!confirm(`Delete ${selected.name}?`)) return;
+    try {
+      await apiDelete(`/controllers/admin_foods.php?food_id=${selected.id}`);
+      setSelectedId(null);
+      await loadFoods();
+    } catch (err) {
+      alert(err.message || "Delete failed");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <Navbar />
       <div className="pt-16">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
-
-          {/* Header */}
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-sky-600/15 border border-sky-700/40 grid place-items-center">
@@ -122,81 +193,96 @@ export default function AdminFoods() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold">Admin — Food & Nutrients</h1>
-                <p className="text-slate-400 text-sm">
-                  Manage food catalog and nutrient data
-                </p>
+                <p className="text-slate-400 text-sm">Manage the food catalog and per-100g nutrient values.</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/admin")}
-              >
+              <Button variant="ghost" onClick={() => navigate("/admin")}>
                 <ArrowLeft className="h-4 w-4" /> Back to Admin Page
               </Button>
-              <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-1 rounded-lg">
-                Demo
-              </span>
-              <Button onClick={handleSave}>
-                <Save className="h-4 w-4" />
-                {saving ? "Saving..." : "Save"}
+              <Button variant="ghost" onClick={loadFoods}>
+                <RefreshCw className="h-4 w-4" /> Reload
               </Button>
+              <Button onClick={handleSave} disabled={!selected || saving}>
+                <Save className="h-4 w-4" />
+                {saving ? "Saving…" : "Save"}
+              </Button>
+              {selected && (
+                <Button variant="danger" onClick={deleteFood}>
+                  <Trash2 className="h-4 w-4" /> Delete
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* Main grid */}
+          <Card className="p-4">
+            <form className="grid gap-3 md:grid-cols-[2fr_2fr_auto]" onSubmit={handleCreate}>
+              <input
+                value={newFood.name}
+                onChange={(e) => setNewFood((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Food name"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
+                required
+              />
+              <input
+                value={newFood.brand}
+                onChange={(e) => setNewFood((f) => ({ ...f, brand: e.target.value }))}
+                placeholder="Brand (optional)"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
+              />
+              <Button type="submit">
+                <Plus className="h-4 w-4" /> Add Food
+              </Button>
+            </form>
+          </Card>
+
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left: foods list */}
             <Card className="lg:col-span-1 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold">Foods</h2>
-                <Button variant="ghost" size="sm" onClick={addFood}>
-                  <Plus className="h-4 w-4" /> Add
-                </Button>
+                <div className="text-xs text-slate-400">{foods.length} items</div>
               </div>
-
-              <div className="flex gap-2 mb-3">
-                <div className="relative w-full">
-                  <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search foods"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
-                  />
-                </div>
+              <div className="relative mb-3">
+                <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search foods"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
+                />
               </div>
-
-              <div className="mt-3 space-y-2 max-h-[520px] overflow-auto pr-1">
-                {displayFoods.map((f) => {
-                  const active = f.id === selectedId;
-                  return (
-                    <button
-                      key={f.id}
-                      onClick={() => setSelectedId(f.id)}
-                      className={`w-full text-left rounded-xl border px-3 py-3 group flex items-center justify-between
-                     ${active ? "bg-slate-800/60 border-sky-700/50" : "bg-slate-900/40 border-slate-800 hover:bg-slate-800/50"}`}
-                    >
-                      <div>
-                        <div className="font-medium">{f.name}</div>
-                        {f.brand ? (
-                          <div className="text-xs text-slate-400">{f.brand}</div>
-                        ) : (
-                          <div className="text-xs text-slate-500">—</div>
-                        )}
-                      </div>
-                      <ChevronRight className={`h-4 w-4 ${active ? "text-sky-400" : "text-slate-500 group-hover:text-slate-300"}`} />
-                    </button>
-                  );
-                })}
+              <div className="space-y-2 max-h-[520px] overflow-auto pr-1">
+                {loading ? (
+                  <div className="text-sm text-slate-400 px-2">Loading foods…</div>
+                ) : displayFoods.length === 0 ? (
+                  <div className="text-sm text-slate-400 px-2">No foods match.</div>
+                ) : (
+                  displayFoods.map((f) => {
+                    const active = f.id === selectedId;
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => setSelectedId(f.id)}
+                        className={`w-full text-left rounded-xl border px-3 py-3 group flex items-center justify-between ${
+                          active ? "bg-slate-800/60 border-sky-700/50" : "bg-slate-900/40 border-slate-800 hover:bg-slate-800/50"
+                        }`}
+                      >
+                        <div>
+                          <div className="font-medium">{f.name}</div>
+                          <div className="text-xs text-slate-400">{f.brand || "—"}</div>
+                        </div>
+                        <ChevronRight className={`h-4 w-4 ${active ? "text-sky-400" : "text-slate-500 group-hover:text-slate-300"}`} />
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </Card>
 
-            {/* Right: composition editor */}
             <Card className="lg:col-span-2 p-5">
               {!selected ? (
-                <div className="text-slate-400 text-sm">Select a food to edit.</div>
+                <div className="text-slate-400 text-sm">Select a food to edit its brand and nutrients.</div>
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-4">
@@ -204,58 +290,56 @@ export default function AdminFoods() {
                       <div className="text-sm text-slate-400">Composition (per 100g)</div>
                       <h3 className="text-xl font-semibold">{selected.name}</h3>
                     </div>
+                    {status && <div className="text-xs text-slate-400">{status}</div>}
                   </div>
 
-                  <div className="grid md:grid-cols-[1fr_160px] gap-3 mb-4">
+                  <div className="grid md:grid-cols-2 gap-3 mb-4">
                     <input
-                      value={newBrand}
-                      onChange={(e) => setNewBrand(e.target.value)}
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      placeholder="Food name"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
+                    />
+                    <input
+                      value={brandDraft}
+                      onChange={(e) => setBrandDraft(e.target.value)}
                       placeholder="Brand (optional)"
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
                     />
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <Info className="h-4 w-4" />
-                      Tip: values are per 100g.
-                    </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {Object.keys(nutrientDraft).length === 0 && (
+                  <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
+                    <Info className="h-4 w-4" />
+                    Values are stored per 100g serving. Leave blank to omit a nutrient.
+                  </div>
+
+                  <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
+                    {nutrients.length === 0 ? (
                       <div className="text-slate-400 text-sm">
-                        No nutrients yet. Add Protein/Fiber/etc. in your backend or extend demo here.
+                        No nutrients defined yet. Use the Admin ➝ Nutrients page to create them.
                       </div>
+                    ) : (
+                      nutrients.map((n) => (
+                        <div key={n.id} className="grid md:grid-cols-[200px_1fr_90px] gap-3 items-center">
+                          <div className="text-slate-300">{n.name}</div>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={nutrientDraft[n.id] ?? ""}
+                            onChange={(e) => handleNutrientChange(n.id, e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
+                          />
+                          <div className="text-slate-400 text-sm">{n.unit}</div>
+                        </div>
+                      ))
                     )}
-
-                    {Object.entries(nutrientDraft).map(([key, v]) => (
-                      <div key={key} className="grid md:grid-cols-[160px_1fr_120px] gap-3 items-center">
-                        <div className="text-slate-300">{key}</div>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={v.amt}
-                          onChange={(e) => handleNutrientChange(key, "amt", e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
-                        />
-                        <select
-                          value={v.unit}
-                          onChange={(e) => handleNutrientChange(key, "unit", e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
-                        >
-                          {units.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
                   </div>
 
-                  <div className="pt-5">
-                    <div className="text-xs text-slate-500">
-                      Tip: Extend nutrients (e.g., carbs, fat, kcal) on the backend and map them into this editor.
+                  {unitOptions.length > 0 && (
+                    <div className="text-xs text-slate-500 pt-4">
+                      Units detected in database: {unitOptions.join(", ")}
                     </div>
-                  </div>
+                  )}
                 </>
               )}
             </Card>

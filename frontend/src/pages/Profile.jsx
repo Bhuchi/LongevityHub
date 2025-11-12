@@ -27,6 +27,8 @@ export default function Profile() {
   const [steps, setSteps] = useState("");
   const [sleepHours, setSleepHours] = useState("");
   const [workoutMins, setWorkoutMins] = useState("");
+  const [proteinGoal, setProteinGoal] = useState("");
+  const [carbGoal, setCarbGoal] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -41,6 +43,8 @@ export default function Profile() {
         setSteps(g.steps != null ? String(g.steps) : "");
         setSleepHours(g.sleep_hours != null ? String(g.sleep_hours) : "");
         setWorkoutMins(g.workout_min != null ? String(g.workout_min) : "");
+        setProteinGoal(g.protein_g != null ? String(g.protein_g) : "");
+        setCarbGoal(g.carb_g != null ? String(g.carb_g) : "");
 
         const m = data.latest || data.measurements || {};
         setHeight(m.height_cm ?? "");
@@ -71,6 +75,8 @@ export default function Profile() {
         steps:        steps !== "" ? Number(steps) : null,
         sleep_hours:  sleepHours !== "" ? Number(sleepHours) : null,
         workout_min:  workoutMins !== "" ? Number(workoutMins) : null,
+        protein_g:    proteinGoal !== "" ? Number(proteinGoal) : null,
+        carb_g:       carbGoal !== "" ? Number(carbGoal) : null,
       };
 
       await apiPost("/controllers/profile.php", payload);
@@ -177,8 +183,18 @@ export default function Profile() {
               <input className="inp" type="number" value={workoutMins} onChange={(e)=>setWorkoutMins(e.target.value)} />
             </label>
 
+            <label className="block mb-3">
+              <div className="text-sm text-slate-400 mb-1">Protein (g) / day</div>
+              <input className="inp" type="number" value={proteinGoal} onChange={(e)=>setProteinGoal(e.target.value)} />
+            </label>
+
+            <label className="block mb-1">
+              <div className="text-sm text-slate-400 mb-1">Carbs (g) / day</div>
+              <input className="inp" type="number" value={carbGoal} onChange={(e)=>setCarbGoal(e.target.value)} />
+            </label>
+
             <p className="text-xs text-slate-500">
-              Tip: You can add protein/fiber goals later by posting those keys too.
+              Set macronutrient targets to see daily progress on the dashboard.
             </p>
           </section>
         </div>

@@ -57,10 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
       SELECT goal_type, target_value
       FROM user_goals
       WHERE user_id=? AND is_active=1
-        AND goal_type IN ('steps','sleep_hours','workout_min')
+        AND goal_type IN ('steps','sleep_hours','workout_min','protein_g','carb_g')
     ");
     $goalsStmt->execute([$user_id]);
-    $goals = ['steps'=>null,'sleep_hours'=>null,'workout_min'=>null];
+    $goals = [
+      'steps'=>null,
+      'sleep_hours'=>null,
+      'workout_min'=>null,
+      'protein_g'=>null,
+      'carb_g'=>null,
+    ];
     foreach ($goalsStmt->fetchAll() as $g) {
       $goals[$g['goal_type']] = (float)$g['target_value'];
     }
@@ -89,6 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $steps        = to_decimal_or_null($body['steps'] ?? null);
   $sleep_hours  = to_decimal_or_null($body['sleep_hours'] ?? null);
   $workout_min  = to_decimal_or_null($body['workout_min'] ?? null);
+  $protein_g    = to_decimal_or_null($body['protein_g'] ?? null);
+  $carb_g       = to_decimal_or_null($body['carb_g'] ?? null);
 
   try {
     $pdo->beginTransaction();
@@ -127,6 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($steps !== null)       { $upsert->execute([$user_id, 'steps',       $steps,      'steps']); }
     if ($sleep_hours !== null) { $upsert->execute([$user_id, 'sleep_hours', $sleep_hours,'hours']); }
     if ($workout_min !== null) { $upsert->execute([$user_id, 'workout_min', $workout_min,'min']); }
+    if ($protein_g !== null)   { $upsert->execute([$user_id, 'protein_g',   $protein_g,  'g']); }
+    if ($carb_g !== null)      { $upsert->execute([$user_id, 'carb_g',      $carb_g,     'g']); }
 
     $pdo->commit();
     echo json_encode(['ok'=>true], JSON_UNESCAPED_UNICODE);
