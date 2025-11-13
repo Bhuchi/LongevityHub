@@ -27,7 +27,9 @@ export default function Wearables() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${API_URL}/get_wearables.php`);
+        const res = await fetch(`${API_URL}/get_wearables.php`, {
+          credentials: "include",
+        });
         const data = await res.json();
         setRows(data);
       } catch (err) {
@@ -48,6 +50,7 @@ export default function Wearables() {
       const res = await fetch(`${API_URL}/add_wearables_upload.php`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
       const data = await res.json();
       if (data.status === "ok") {
@@ -208,6 +211,7 @@ function NewEntryModal({ onClose }) {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [steps, setSteps] = useState(7000);
   const [heart_rate, setHR] = useState(72);
+  const [hrv, setHrv] = useState(70);
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -216,7 +220,8 @@ function NewEntryModal({ onClose }) {
       await fetch(`${API_URL}/add_wearable.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, steps, heart_rate, hrv: 70 }),
+        credentials: "include",
+        body: JSON.stringify({ date, steps, heart_rate, hrv }),
       });
       alert("✅ Entry added successfully");
       window.location.reload();
@@ -269,6 +274,16 @@ function NewEntryModal({ onClose }) {
               className="inp"
               value={heart_rate}
               onChange={(e) => setHR(e.target.value)}
+            />
+          </label>
+
+          <label className="block">
+            <div className="text-sm text-slate-400 mb-1">HRV (ms)</div>
+            <input
+              type="number"
+              className="inp"
+              value={hrv}
+              onChange={(e) => setHrv(e.target.value)}
             />
           </label>
 

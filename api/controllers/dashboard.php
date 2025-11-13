@@ -30,17 +30,83 @@ try {
   $scoreStmt->execute([$userId, $rangeStart, $todayStr]);
   $scoreRows = $scoreStmt->fetchAll() ?: [];
 
-  // readiness (hrv, rhr, steps, sleep, workout)
-  $readyStmt = $pdo->prepare("
-    SELECT day, steps, sleep_hours, workout_min, avg_hrv, avg_rhr
-    FROM v_daily_readiness
-    WHERE user_id = ?
-      AND day BETWEEN ? AND ?
-    ORDER BY day ASC
+  // readiness components (wearables, sleep, workout) aggregated manually so we can show workouts even without wearables logged that day
+  $wearStmt = $pdo->prepare("
+    SELECT DATE(ts) AS day,
+           AVG(CASE WHEN metric='hrv' THEN value END) AS avg_hrv,
+           AVG(CASE WHEN metric='resting_hr' THEN value END) AS avg_rhr,
+           SUM(CASE WHEN metric='steps' THEN value END) AS steps
+    FROM wearable_readings
+    WHERE user_id = ? AND DATE(ts) BETWEEN ? AND ?
+    GROUP BY day
   ");
-  $readyStmt->execute([$userId, $rangeStart, $todayStr]);
-  $readyRows = $readyStmt->fetchAll() ?: [];
-  $latestReady = $readyRows ? $readyRows[count($readyRows) - 1] : null;
+  $wearStmt->execute([$userId, $rangeStart, $todayStr]);
+  $wearRows = $wearStmt->fetchAll() ?: [];
+
+  $sleepStmt = $pdo->prepare("
+    SELECT DATE(start_time) AS day,
+           SUM(TIMESTAMPDIFF(SECOND,start_time,end_time))/3600 AS sleep_hours
+    FROM sleep_sessions
+    WHERE user_id = ? AND DATE(start_time) BETWEEN ? AND ?
+    GROUP BY day
+  ");
+  $sleepStmt->execute([$userId, $rangeStart, $todayStr]);
+  $sleepRows = $sleepStmt->fetchAll() ?: [];
+
+  $wkStmt = $pdo->prepare("
+    SELECT DATE(started_at) AS day,
+           SUM(duration_min) AS workout_min
+    FROM workouts
+    WHERE user_id = ? AND DATE(started_at) BETWEEN ? AND ?
+    GROUP BY day
+  ");
+  $wkStmt->execute([$userId, $rangeStart, $todayStr]);
+  $wkRows = $wkStmt->fetchAll() ?: [];
+
+  $readinessMap = [];
+  $ensureDay = function($day) use (&$readinessMap) {
+    if (!isset($readinessMap[$day])) {
+      $readinessMap[$day] = [
+        'avg_hrv' => null,
+        'avg_rhr' => null,
+        'steps' => 0,
+        'sleep_hours' => 0,
+        'workout_min' => 0,
+      ];
+    }
+  };
+
+  foreach ($wearRows as $row) {
+    $day = $row['day'];
+    $ensureDay($day);
+    if ($row['avg_hrv'] !== null) {
+      $readinessMap[$day]['avg_hrv'] = (float)$row['avg_hrv'];
+    }
+    if ($row['avg_rhr'] !== null) {
+      $readinessMap[$day]['avg_rhr'] = (float)$row['avg_rhr'];
+    }
+    $readinessMap[$day]['steps'] = (float)($row['steps'] ?? 0);
+  }
+
+  foreach ($sleepRows as $row) {
+    $day = $row['day'];
+    $ensureDay($day);
+    $readinessMap[$day]['sleep_hours'] = (float)($row['sleep_hours'] ?? 0);
+  }
+
+  foreach ($wkRows as $row) {
+    $day = $row['day'];
+    $ensureDay($day);
+    $readinessMap[$day]['workout_min'] = (float)($row['workout_min'] ?? 0);
+  }
+
+  ksort($readinessMap);
+  $latestReady = null;
+  if ($readinessMap) {
+    $dayKeys = array_keys($readinessMap);
+    $lastDay = end($dayKeys);
+    $latestReady = $readinessMap[$lastDay];
+  }
 
   // nutrients (protein/carbs) for today + trend
   $nutrientStmt = $pdo->prepare("
