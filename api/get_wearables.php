@@ -1,7 +1,15 @@
 <?php
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($origin && preg_match('#^https?://(localhost|127\.0\.0\.1)(:\d+)?$#', $origin)) {
+    header("Access-Control-Allow-Origin: $origin");
+    header('Access-Control-Allow-Credentials: true');
+    header('Vary: Origin');
+} else {
+    header("Access-Control-Allow-Origin: http://localhost:5173");
+}
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorization");
+header("Content-Type: application/json; charset=utf-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -10,10 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once "config.php";
 
-$user_id = 1; // ✅ matches your phpMyAdmin data
+if (!isset($_SESSION['user']) || empty($_SESSION['user']['user_id'])) {
+    http_response_code(401);
+    echo json_encode(["error" => "unauthorized"]);
+    exit;
+}
+$user_id = (int)$_SESSION['user']['user_id'];
 
 try {
-    // ✅ The SQL now matches your table's structure perfectly
     $sql = "SELECT 
                 DATE(ts) AS date,
                 SUM(CASE WHEN metric = 'steps' THEN value ELSE 0 END) AS steps,
@@ -31,6 +43,6 @@ try {
 
     echo json_encode($data, JSON_PRETTY_PRINT);
 } catch (Exception $e) {
+    http_response_code(500);
     echo json_encode(["error" => $e->getMessage()]);
 }
-?>
