@@ -6,4 +6,9 @@ export function getUser() {
 export function isPremium() { return getUser()?.role === "premium"; }
 export function isAdmin()   { return getUser()?.role === "admin"; }
 export function isLoggedIn(){ return !!getUser(); }
-export function logout()    { localStorage.removeItem("lh_user"); }
+export function logout() {
+  localStorage.removeItem("lh_user");
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("lh:auth-changed"));
+  }
+}

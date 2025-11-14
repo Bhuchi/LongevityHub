@@ -10,6 +10,75 @@ header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, Authorizat
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Content-Type: application/json; charset=utf-8');
 
+if (!function_exists('lh_load_env_file')) {
+  function lh_load_env_file($path) {
+    if (!is_readable($path)) {
+      return;
+    }
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+      $line = trim($line);
+      if ($line === '' || strpos($line, '#') === 0) {
+        continue;
+      }
+      [$key, $value] = array_pad(explode('=', $line, 2), 2, '');
+      $key = trim($key);
+      if ($key === '') {
+        continue;
+      }
+      $value = trim($value);
+      if ($value !== '' && ($value[0] === '"' || $value[0] === "'") && substr($value, -1) === $value[0]) {
+        $value = substr($value, 1, -1);
+      }
+      if (!array_key_exists($key, $_ENV)) {
+        $_ENV[$key] = $value;
+      }
+      if (!array_key_exists($key, $_SERVER)) {
+        $_SERVER[$key] = $value;
+      }
+      if (getenv($key) === false) {
+        putenv("$key=$value");
+      }
+    }
+  }
+}
+
+$envFiles = [
+  dirname(__DIR__) . '/.env.local',
+  dirname(__DIR__) . '/.env',
+  __DIR__ . '/.env.local',
+  __DIR__ . '/.env',
+  dirname(__DIR__) . '/.env.example',
+  __DIR__ . '/.env.example',
+];
+foreach ($envFiles as $envFile) {
+  lh_load_env_file($envFile);
+}
+
+if (!function_exists('lh_env_value')) {
+  function lh_env_value($key) {
+    $value = $_ENV[$key] ?? getenv($key);
+    $value = is_string($value) ? trim($value) : '';
+    return $value !== '' ? $value : null;
+  }
+}
+
+if (!function_exists('lh_is_placeholder_key')) {
+  function lh_is_placeholder_key($value) {
+    $lower = strtolower($value);
+    if ($lower === '' || strpos($lower, 'your') !== false) {
+      return true;
+    }
+    $known = ['change-me', 'gemini_api_key'];
+    return in_array($lower, $known, true);
+  }
+}
+
+$geminiKey = lh_env_value('GEMINI_API_KEY');
+if (!defined('GEMINI_API_KEY') && $geminiKey && !lh_is_placeholder_key($geminiKey)) {
+  define('GEMINI_API_KEY', $geminiKey);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   http_response_code(204);
   exit;

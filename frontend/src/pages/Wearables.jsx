@@ -11,6 +11,7 @@ import {
 } from "recharts";
 
 const API_URL = "http://localhost:8888"; // ✅ your MAMP root (no /api)
+const PAGE_SIZE = 30;
 
 /* --- Helper --- */
 const fmtDate = (iso) =>
@@ -22,22 +23,79 @@ const fmtDate = (iso) =>
 export default function Wearables() {
   const [rows, setRows] = useState([]);
   const [show, setShow] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageInput, setPageInput] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
 
   /* --- Fetch data from MySQL --- */
   useEffect(() => {
+    let active = true;
     async function load() {
+      setLoading(true);
+      setError("");
       try {
-        const res = await fetch(`${API_URL}/get_wearables.php`, {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(PAGE_SIZE),
+        });
+        if (appliedSearch) params.append("date", appliedSearch);
+        const res = await fetch(`${API_URL}/get_wearables.php?${params}`, {
           credentials: "include",
         });
         const data = await res.json();
-        setRows(data);
+        if (!active) return;
+        const list = Array.isArray(data?.rows)
+          ? data.rows
+          : Array.isArray(data)
+          ? data
+          : [];
+        setRows(list);
+        setHasMore(Boolean(data?.has_more));
+        const totalDays = data?.total_days ?? (appliedSearch ? list.length : PAGE_SIZE);
+        setTotalPages(Math.max(1, Math.ceil(totalDays / PAGE_SIZE)));
       } catch (err) {
+        if (!active) return;
         console.error("⚠️ Error fetching wearables:", err);
+        setError(err.message || "Failed to load wearables.");
+        setRows([]);
+        setHasMore(false);
+      } finally {
+        if (active) setLoading(false);
       }
     }
     load();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [page, appliedSearch]);
+
+  function applySearch() {
+    setPage(1);
+    setAppliedSearch(search);
+  }
+
+function clearSearch() {
+  setSearch("");
+  setAppliedSearch("");
+  setPage(1);
+}
+
+const pageButtons = useMemo(() => {
+  const base = new Set([1, totalPages, page - 1, page, page + 1]);
+  const arr = [...base].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+  return arr;
+}, [page, totalPages]);
+
+function jumpToPage() {
+  if (!pageInput) return;
+  const target = Math.max(1, Math.min(totalPages, Number(pageInput)));
+  setPage(target);
+}
 
   /* --- Upload CSV file --- */
   async function handleUpload(e) {
@@ -89,16 +147,46 @@ export default function Wearables() {
   return (
     <Layout>
       {/* --- Header --- */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Wearables</h1>
-          <div className="text-slate-400 text-sm">
-            Daily stats from your wearable device
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Wearables</h1>
+            <div className="text-slate-400 text-sm">
+              Daily stats from your wearable device
+            </div>
+          </div>
+          <button className="btn" onClick={() => setShow(true)}>
+            Add manual entry
+          </button>
+        </div>
+
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <label className="text-slate-400 text-sm flex items-center gap-2">
+            <span>Filter by date:</span>
+            <input
+              type="date"
+              className="inp max-w-[180px]"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={applySearch}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm"
+            >
+              Apply
+            </button>
+            {appliedSearch && (
+              <button
+                onClick={clearSearch}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
-        <button className="btn" onClick={() => setShow(true)}>
-          Add manual entry
-        </button>
       </div>
 
       {/* --- CSV Import Section --- */}
@@ -139,7 +227,7 @@ export default function Wearables() {
       {/* --- Chart --- */}
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4 mb-6">
         <div className="text-slate-400 text-sm mb-2">
-          Steps trend (past {rows.length} days)
+          Steps trend (page {page} — {rows.length} days)
         </div>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={[...rows].reverse()}>
@@ -165,16 +253,93 @@ export default function Wearables() {
       </div>
 
       {/* --- Data List --- */}
-      {rows.length === 0 ? (
+      {loading ? (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center text-slate-400">
-          No wearable data yet. Upload a CSV file or add manually.
+          Loading…
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl bg-rose-950/40 border border-rose-800 p-8 text-center text-rose-200">
+          {error}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-8 text-center text-slate-400">
+          No wearable data {appliedSearch ? "for that date" : "yet"}. Upload a CSV file or add manually.
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {rows.map((r, i) => (
-            <RowCard key={i} row={r} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            {rows.map((r) => (
+              <RowCard key={r.date} row={r} />
+            ))}
+          </div>
+          {!appliedSearch && (
+            <div className="flex flex-col gap-3 mt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm disabled:opacity-50"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
+                >
+                  ← Previous
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {pageButtons.map((num, idx) => (
+                    <React.Fragment key={num}>
+                      {idx > 0 && pageButtons[idx - 1] !== num - 1 && (
+                        <span className="text-slate-500 px-1">…</span>
+                      )}
+                      <button
+                        className={`px-3 py-1 rounded-xl text-sm border ${
+                          num === page
+                            ? "bg-sky-600 border-sky-500 text-white"
+                            : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+                        }`}
+                        onClick={() => setPage(num)}
+                        disabled={num === page}
+                      >
+                        {num}
+                      </button>
+                    </React.Fragment>
+                  ))}
+                </div>
+
+                <button
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm disabled:opacity-50"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || loading}
+                >
+                  Next →
+                </button>
+              </div>
+
+              <form
+                className="flex items-center gap-2 text-sm text-slate-400"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  jumpToPage();
+                }}
+              >
+                <span>Jump to page:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={totalPages}
+                  value={pageInput}
+                  onChange={(e) => setPageInput(e.target.value)}
+                  className="inp max-w-[120px]"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm disabled:opacity-50"
+                  disabled={!pageInput}
+                >
+                  Go
+                </button>
+              </form>
+            </div>
+          )}
+        </>
       )}
 
       {show && <NewEntryModal onClose={() => setShow(false)} />}

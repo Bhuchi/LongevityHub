@@ -38,12 +38,14 @@ export default function Login() {
       };
 
       localStorage.setItem("lh_user", JSON.stringify(u));
+      window.dispatchEvent(new Event("lh:auth-changed"));
       setMsg("✅ Logged in");
       navigate("/"); // success
     } catch (err) {
       setMsg(err.message || "Login failed");
       // make sure no stale user remains
       localStorage.removeItem("lh_user");
+      window.dispatchEvent(new Event("lh:auth-changed"));
     } finally {
       setBusy(false);
     }
