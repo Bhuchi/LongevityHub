@@ -102,10 +102,17 @@ try {
 
   ksort($readinessMap);
   $latestReady = null;
+  $sleepDisplayHours = 0;
   if ($readinessMap) {
     $dayKeys = array_keys($readinessMap);
     $lastDay = end($dayKeys);
     $latestReady = $readinessMap[$lastDay];
+    $yesterday = $today->sub(new DateInterval('P1D'))->format('Y-m-d');
+    if (isset($readinessMap[$yesterday])) {
+      $sleepDisplayHours = $readinessMap[$yesterday]['sleep_hours'];
+    } else {
+      $sleepDisplayHours = $latestReady['sleep_hours'] ?? 0;
+    }
   }
 
   // nutrients (protein/carbs) for today + trend
@@ -150,7 +157,7 @@ try {
   }
 
   $currentSteps = $latestReady['steps'] ?? 0;
-  $currentSleep = $latestReady['sleep_hours'] ?? 0;
+  $currentSleep = $sleepDisplayHours;
   $currentWorkout = $latestReady['workout_min'] ?? 0;
   $currentProtein = $nutrientsToday['protein_g'] ?? 0;
   $currentCarb = $nutrientsToday['carb_g'] ?? 0;
@@ -250,7 +257,7 @@ try {
       'avg_hrv' => $latestReady['avg_hrv'] ?? null,
       'avg_rhr' => $latestReady['avg_rhr'] ?? null,
       'steps' => $latestReady['steps'] ?? 0,
-      'sleep_hours' => $latestReady['sleep_hours'] ?? 0,
+      'sleep_hours' => $sleepDisplayHours,
       'workout_min' => $latestReady['workout_min'] ?? 0,
     ],
     'goals' => $goalPayload,

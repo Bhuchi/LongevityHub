@@ -19,8 +19,37 @@ import AdminFood from "./pages/admin/AdminFoods.jsx";
 import AdminNutrients from "./pages/admin/AdminNutrients.jsx";
 import AdminAnalytics from "./pages/admin/AdminAnalytics.jsx";
 import Chatbot from "./components/Chatbot.jsx";
+import { useEffect, useState } from "react";
+
+function readStoredUser() {
+  try {
+    return (
+      JSON.parse(localStorage.getItem("lh_user")) ||
+      JSON.parse(localStorage.getItem("user")) ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
+  const [chatKey, setChatKey] = useState(0);
+  const [authUser, setAuthUser] = useState(() => readStoredUser());
+
+  useEffect(() => {
+    const handle = () => {
+      setAuthUser(readStoredUser());
+      setChatKey((k) => k + 1);
+    };
+    window.addEventListener("storage", handle);
+    window.addEventListener("lh:auth-changed", handle);
+    return () => {
+      window.removeEventListener("storage", handle);
+      window.removeEventListener("lh:auth-changed", handle);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -51,8 +80,7 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-        <Chatbot />
-
+      {authUser && <Chatbot key={chatKey} user={authUser} />}
     </BrowserRouter>
   );
 }
