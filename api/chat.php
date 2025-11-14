@@ -513,15 +513,19 @@ if ($message === '') {
 }
 
 function is_longevity_topic(string $text): bool {
+  $lower = strtolower($text);
+  if (preg_match('/\b(hi|hello|hey|sup|hola|good morning|good evening|good night|what\'s up|how are you)\b/', $lower)) {
+    return true;
+  }
   $topics = [
     'longevity','health','sleep','workout','exercise','training','fitness',
     'meal','meals','nutrition','diet','calorie','protein','carb','fat','macro',
     'steps','walking','run','running','cycle','cycling','swim','swimming',
     'hrv','resting heart','resting hr','body','weight','waist','body fat',
     'goal','stress','recovery','rest','wearable','aura','oura','garmin','fitbit',
-    'supplement','hydration','mindfulness','meditation','habit'
+    'supplement','hydration','mindfulness','meditation','habit','smoke','smoking',
+    'cigarette','nicotine','alcohol','drinking','addiction','detox','lifestyle'
   ];
-  $lower = strtolower($text);
   foreach ($topics as $word) {
     if (strpos($lower, $word) !== false) {
       return true;
