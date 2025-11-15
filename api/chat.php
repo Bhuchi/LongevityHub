@@ -466,6 +466,92 @@ function build_local_coach_reply(string $message, array $stats, string $context,
   $goalProtein = (int)($stats['goals']['protein_g'] ?? 100);
   $today = $stats['today_metrics'] ?? [];
 
+  if (strpos($lower, 'score') !== false) {
+    $drivers = [
+      'sleep_hours' => [
+        'label' => 'Sleep',
+        'unit' => 'h',
+        'precision' => 1,
+        'goal' => $goalSleep,
+        'current' => $today['sleep_hours'] ?? null,
+      ],
+      'steps' => [
+        'label' => 'Steps',
+        'unit' => 'steps',
+        'precision' => 0,
+        'goal' => $goalSteps,
+        'current' => $today['steps'] ?? null,
+      ],
+      'workout_min' => [
+        'label' => 'Workout',
+        'unit' => 'min',
+        'precision' => 0,
+        'goal' => $goalWorkout,
+        'current' => $today['workout_min'] ?? null,
+      ],
+    ];
+    $snapshots = [];
+    $bestKey = null;
+    $bestProgress = 2;
+    foreach ($drivers as $key => $meta) {
+      $goal = $meta['goal'];
+      $current = $meta['current'];
+      $precision = $meta['precision'];
+      $currentText = $current !== null ? number_format((float)$current, $precision) : "—";
+      if ($goal > 0) {
+        $goalText = number_format((float)$goal, $precision);
+        $snapshots[] = "{$meta['label']} {$currentText}/{$goalText} {$meta['unit']}";
+        $progress = ($current ?? 0) / max(1e-3, $goal);
+      } else {
+        $snapshots[] = "{$meta['label']} {$currentText} {$meta['unit']}";
+        $progress = $current ? 1 : 0;
+      }
+      if ($progress < $bestProgress) {
+        $bestProgress = $progress;
+        $bestKey = $key;
+      }
+    }
+    $snapshotSentence = "Daily score jumps when sleep, steps, and workouts hit target: " . implode(", ", $snapshots) . ".";
+    $tipSentence = "Log a fresh sleep, steps, and workout entry so I can re-score the day.";
+    if ($bestKey) {
+      $focus = $drivers[$bestKey];
+      $goal = (float)$focus['goal'];
+      $current = $focus['current'];
+      $gap = $goal > 0 ? max(0, $goal - ($current ?? 0)) : null;
+      $missing = $current === null;
+      switch ($bestKey) {
+        case 'sleep_hours':
+          if ($missing) {
+            $tipSentence = "Log tonight's sleep and protect a 45-minute screen-free wind-down to move toward {$goalSleep} h.";
+          } elseif ($gap !== null && $gap > 0.25) {
+            $tipSentence = "Move bedtime up ~" . number_format($gap, 1) . " h with a set lights-out and you will see the score climb tomorrow.";
+          } else {
+            $tipSentence = "Hold that consistent sleep block and keep tracking it nightly to stabilize the score.";
+          }
+          break;
+        case 'steps':
+          if ($missing) {
+            $tipSentence = "Sync your wearable or add today's walks manually so those steps boost the score.";
+          } elseif ($gap !== null && $gap > 500) {
+            $tipSentence = "Stack three brisk 10-minute walks to cover the remaining " . number_format($gap) . " steps before bed.";
+          } else {
+            $tipSentence = "One more short loop outside locks in the step goal and nudges the score upward.";
+          }
+          break;
+        case 'workout_min':
+          if ($missing) {
+            $tipSentence = "Log even a 20-minute strength or mobility session so the workout pillar counts toward your score.";
+          } elseif ($gap !== null && $gap > 5) {
+            $tipSentence = "Add a " . number_format($gap) . "-minute finisher (tempo push-ups, lunges, planks) to reach the workout target.";
+          } else {
+            $tipSentence = "Keep today's training quality high and note any recovery work so the score captures it.";
+          }
+          break;
+      }
+    }
+    return "{$snapshotSentence} {$tipSentence}";
+  }
+
   if (strpos($lower, 'workout') !== false || strpos($lower, 'exercise') !== false) {
     $session = $goalWorkout ?: 40;
     return "4-day strength plan (~{$session} min each): Day 1 Lower — back squats, Romanian deadlifts, walking lunges, plank holds. Day 2 Upper — incline push-ups or bench, bent-over rows, shoulder press, face pulls. Day 3 Power/Core — kettlebell swings, Bulgarian split squats, pull-ups, Pallof press. Day 4 Conditioning — trap-bar deadlifts, push-ups, assault bike intervals, farmer carries. Log RPE after each day and ask again if you need swaps.";
@@ -522,7 +608,7 @@ function is_longevity_topic(string $text): bool {
     'meal','meals','nutrition','diet','calorie','protein','carb','fat','macro',
     'steps','walking','run','running','cycle','cycling','swim','swimming',
     'hrv','resting heart','resting hr','body','weight','waist','body fat',
-    'goal','stress','recovery','rest','wearable','aura','oura','garmin','fitbit',
+    'goal','score','stress','recovery','rest','wearable','aura','oura','garmin','fitbit',
     'supplement','hydration','mindfulness','meditation','habit','smoke','smoking',
     'cigarette','nicotine','alcohol','drinking','addiction','detox','lifestyle',
     'marijuana','cannabis','weed','vape','vaping','e-cig','e cigarette','tobacco'

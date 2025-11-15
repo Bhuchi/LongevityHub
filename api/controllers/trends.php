@@ -13,6 +13,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 require_once __DIR__ . '/../config.php';
 
+function fetch_score_for_day(PDO $pdo, int $userId, string $day): ?float {
+  $stmt = $pdo->prepare("CALL sp_get_daily_score(:uid, :pday, @p_score)");
+  $stmt->execute([':uid' => $userId, ':pday' => $day]);
+  $stmt->closeCursor();
+  $select = $pdo->query("SELECT @p_score AS score");
+  $row = $select ? $select->fetch(PDO::FETCH_ASSOC) : null;
+  if ($select) {
+    $select->closeCursor();
+  }
+  if (!$row || $row['score'] === null) {
+    return null;
+  }
+  return (float)$row['score'];
+}
+
 if (!isset($_SESSION['user']) || empty($_SESSION['user']['user_id'])) {
   http_response_code(401);
   echo json_encode(['ok' => false, 'error' => 'unauthorized']);
@@ -54,14 +69,6 @@ try {
   $nutrientStmt->execute([$userId, $startDate, $endDate]);
   $nutrientRows = $nutrientStmt->fetchAll();
 
-  $scoreStmt = $pdo->prepare("
-    SELECT day, score
-    FROM v_daily_score
-    WHERE user_id = ? AND day BETWEEN ? AND ?
-    ORDER BY day ASC
-  ");
-  $scoreStmt->execute([$userId, $startDate, $endDate]);
-  $scoreRows = $scoreStmt->fetchAll();
 } catch (Throwable $e) {
   json_fail($e->getMessage(), 500);
 }
@@ -101,10 +108,8 @@ foreach ($nutrientRows as $row) {
   }
 }
 
-foreach ($scoreRows as $row) {
-  $day = $row['day'];
-  if (!isset($window[$day])) continue;
-  $window[$day]['score'] = $row['score'] !== null ? (float)$row['score'] : null;
+foreach (array_keys($window) as $day) {
+  $window[$day]['score'] = fetch_score_for_day($pdo, $userId, $day);
 }
 
 echo json_encode([

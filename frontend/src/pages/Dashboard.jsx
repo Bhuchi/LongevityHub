@@ -220,7 +220,8 @@ export default function Dashboard() {
       {/* Activity & Lifestyle */}
       <div className="grid lg:grid-cols-2 gap-6">
         <Card>
-          <h2 className="text-lg font-semibold mb-3">Activity & Recovery</h2>
+          <h2 className="text-lg font-semibold mb-1">Activity & Recovery</h2>
+          <p className="text-xs text-slate-500 mb-3">7-day averages</p>
           <div className="grid md:grid-cols-3 gap-4">
             <Link
               to="/wearables"
@@ -262,7 +263,8 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold mb-3">Lifestyle Metrics</h2>
+          <h2 className="text-lg font-semibold mb-1">Lifestyle Metrics</h2>
+          <p className="text-xs text-slate-500 mb-3">7-day averages</p>
           <div className="grid md:grid-cols-2 gap-4">
             <Link
               to="/sleep"
