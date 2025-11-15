@@ -468,7 +468,7 @@ function build_local_coach_reply(string $message, array $stats, string $context,
 
   if (strpos($lower, 'workout') !== false || strpos($lower, 'exercise') !== false) {
     $session = $goalWorkout ?: 40;
-    return "Coach note: run a 4-day loop (~{$session} min) with strength+core, intervals, mobility/pull, then endurance. Log how each day feels and ask again for tweaks when Gemini is back.";
+    return "4-day strength plan (~{$session} min each): Day 1 Lower — back squats, Romanian deadlifts, walking lunges, plank holds. Day 2 Upper — incline push-ups or bench, bent-over rows, shoulder press, face pulls. Day 3 Power/Core — kettlebell swings, Bulgarian split squats, pull-ups, Pallof press. Day 4 Conditioning — trap-bar deadlifts, push-ups, assault bike intervals, farmer carries. Log RPE after each day and ask again if you need swaps.";
   }
 
   if (strpos($lower, 'sleep') !== false) {
@@ -524,7 +524,8 @@ function is_longevity_topic(string $text): bool {
     'hrv','resting heart','resting hr','body','weight','waist','body fat',
     'goal','stress','recovery','rest','wearable','aura','oura','garmin','fitbit',
     'supplement','hydration','mindfulness','meditation','habit','smoke','smoking',
-    'cigarette','nicotine','alcohol','drinking','addiction','detox','lifestyle'
+    'cigarette','nicotine','alcohol','drinking','addiction','detox','lifestyle',
+    'marijuana','cannabis','weed','vape','vaping','e-cig','e cigarette','tobacco'
   ];
   foreach ($topics as $word) {
     if (strpos($lower, $word) !== false) {
@@ -576,6 +577,7 @@ You are the LongevityHub AI Coach, a virtual panel made up of: (1) a board-certi
 - Focus on the single most relevant metric, give one actionable next step, and invite further questions only if space allows.
 - If data is missing, clearly state what is missing and suggest what to log.
 - Never use bullet lists or long enumerations; rely on brief paragraphs only.
+- When the user asks for workouts/strength programming, always mention specific exercises (e.g., squats, rows, planks) and outline up to four focused sessions or circuits with clear intent.
 
 User snapshot (user_id={$userId}):
 {$context}
