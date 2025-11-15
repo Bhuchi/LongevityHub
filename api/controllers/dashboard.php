@@ -1,6 +1,21 @@
 <?php
 require_once __DIR__ . '/../config.php';
 
+function fetch_score_for_day(PDO $pdo, int $userId, string $day): ?float {
+  $stmt = $pdo->prepare("CALL sp_get_daily_score(:uid, :pday, @p_score)");
+  $stmt->execute([':uid' => $userId, ':pday' => $day]);
+  $stmt->closeCursor();
+  $select = $pdo->query("SELECT @p_score AS score");
+  $scoreRow = $select ? $select->fetch(PDO::FETCH_ASSOC) : null;
+  if ($select) {
+    $select->closeCursor();
+  }
+  if (!$scoreRow || $scoreRow['score'] === null) {
+    return null;
+  }
+  return (float)$scoreRow['score'];
+}
+
 function json_fail($msg, $code = 400) {
   http_response_code($code);
   echo json_encode(['ok' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
@@ -19,16 +34,19 @@ $todayStr = $today->format('Y-m-d');
 $rangeStart = $today->sub(new DateInterval('P6D'))->format('Y-m-d');
 
 try {
-  // score trend (last 7 days)
-  $scoreStmt = $pdo->prepare("
-    SELECT day, score
-    FROM v_daily_score
-    WHERE user_id = ?
-      AND day BETWEEN ? AND ?
-    ORDER BY day ASC
-  ");
-  $scoreStmt->execute([$userId, $rangeStart, $todayStr]);
-  $scoreRows = $scoreStmt->fetchAll() ?: [];
+  // score trend (last 7 days) via stored procedure
+  $scoreRows = [];
+  $scoreTodayValue = null;
+  $cursor = new DateTimeImmutable($rangeStart);
+  while ($cursor <= $today) {
+    $dayStr = $cursor->format('Y-m-d');
+    $scoreVal = fetch_score_for_day($pdo, $userId, $dayStr);
+    if ($dayStr === $todayStr) {
+      $scoreTodayValue = $scoreVal;
+    }
+    $scoreRows[] = ['day' => $dayStr, 'score' => $scoreVal];
+    $cursor = $cursor->add(new DateInterval('P1D'));
+  }
 
   // readiness components (wearables, sleep, workout) aggregated manually so we can show workouts even without wearables logged that day
   $wearStmt = $pdo->prepare("
@@ -114,6 +132,42 @@ try {
       $sleepDisplayHours = $latestReady['sleep_hours'] ?? 0;
     }
   }
+
+  // compute 7-day averages for the readiness metrics
+  $dayWindowCount = 0;
+  $stepTotal = 0;
+  $sleepTotal = 0;
+  $workoutTotal = 0;
+  $hrvTotal = 0;
+  $hrvDays = 0;
+  $rhrTotal = 0;
+  $rhrDays = 0;
+  $cursor = new DateTimeImmutable($rangeStart);
+  while ($cursor <= $today) {
+    $dayStr = $cursor->format('Y-m-d');
+    $row = $readinessMap[$dayStr] ?? [];
+    if (array_key_exists('avg_hrv', $row) && $row['avg_hrv'] !== null) {
+      $hrvTotal += (float)$row['avg_hrv'];
+      $hrvDays++;
+    }
+    if (array_key_exists('avg_rhr', $row) && $row['avg_rhr'] !== null) {
+      $rhrTotal += (float)$row['avg_rhr'];
+      $rhrDays++;
+    }
+    $stepTotal += (float)($row['steps'] ?? 0);
+    $sleepTotal += (float)($row['sleep_hours'] ?? 0);
+    $workoutTotal += (float)($row['workout_min'] ?? 0);
+    $dayWindowCount++;
+    $cursor = $cursor->add(new DateInterval('P1D'));
+  }
+  $dayWindowCount = max(1, $dayWindowCount);
+  $readinessAverages = [
+    'avg_hrv' => $hrvDays ? round($hrvTotal / $hrvDays) : null,
+    'avg_rhr' => $rhrDays ? round($rhrTotal / $rhrDays) : null,
+    'steps' => round($stepTotal / $dayWindowCount),
+    'sleep_hours' => round($sleepTotal / $dayWindowCount, 1),
+    'workout_min' => round($workoutTotal / $dayWindowCount),
+  ];
 
   // nutrients (protein/carbs) for today + trend
   $nutrientStmt = $pdo->prepare("
@@ -250,15 +304,15 @@ try {
   echo json_encode([
     'ok' => true,
     'score' => [
-      'today' => $scoreRows ? (float)($scoreRows[count($scoreRows) - 1]['score'] ?? 0) : null,
+      'today' => $scoreTodayValue,
       'trend' => $scoreRows,
     ],
     'readiness' => [
-      'avg_hrv' => $latestReady['avg_hrv'] ?? null,
-      'avg_rhr' => $latestReady['avg_rhr'] ?? null,
-      'steps' => $latestReady['steps'] ?? 0,
-      'sleep_hours' => $sleepDisplayHours,
-      'workout_min' => $latestReady['workout_min'] ?? 0,
+      'avg_hrv' => $readinessAverages['avg_hrv'],
+      'avg_rhr' => $readinessAverages['avg_rhr'],
+      'steps' => $readinessAverages['steps'],
+      'sleep_hours' => $readinessAverages['sleep_hours'],
+      'workout_min' => $readinessAverages['workout_min'],
     ],
     'goals' => $goalPayload,
     'protein' => [
