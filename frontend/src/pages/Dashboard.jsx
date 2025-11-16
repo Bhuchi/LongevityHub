@@ -66,10 +66,29 @@ export default function Dashboard() {
     }));
   }, [payload]);
 
-  const scoreToday =
-    payload?.score?.today !== null && payload?.score?.today !== undefined
-      ? Number(payload.score.today).toFixed(0)
-      : "--";
+  const hasScoreToday =
+    payload?.score?.today !== null && payload?.score?.today !== undefined;
+  const scoreValue = hasScoreToday
+    ? Number(payload.score.today).toFixed(0)
+    : payload?.score?.latest !== null && payload?.score?.latest !== undefined
+    ? Number(payload.score.latest).toFixed(0)
+    : "--";
+  const scoreNote = useMemo(() => {
+    if (hasScoreToday) {
+      return "Computed from v_daily_score (last 7 days)";
+    }
+    if (
+      payload?.score?.latest_day !== null &&
+      payload?.score?.latest_day !== undefined
+    ) {
+      const when = new Date(payload.score.latest_day).toLocaleDateString(
+        undefined,
+        { month: "short", day: "numeric" }
+      );
+      return `Last computed ${when}. Log today's sleep, steps, and workout to refresh.`;
+    }
+    return "Log sleep, steps, and workout data to unlock your score.";
+  }, [hasScoreToday, payload]);
 
   const readiness = payload?.readiness || {};
   const goals = payload?.goals || {};
@@ -171,10 +190,8 @@ export default function Dashboard() {
         <div className="lg:col-span-2 grid lg:grid-cols-3 gap-6">
           <Card className="col-span-2">
             <h2 className="text-lg font-semibold mb-1">Daily Score</h2>
-            <div className="text-5xl font-bold mb-1">{scoreToday}</div>
-            <p className="text-slate-400 text-xs mb-3">
-              Computed from v_daily_score (last 7 days)
-            </p>
+            <div className="text-5xl font-bold mb-1">{scoreValue}</div>
+            <p className="text-slate-400 text-xs mb-3">{scoreNote}</p>
             {scoreTrend.length === 0 ? (
               <div className="text-slate-500 text-sm">
                 No score data yet. Log wearables/sleep to see this metric.

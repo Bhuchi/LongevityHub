@@ -47,6 +47,16 @@ try {
     $scoreRows[] = ['day' => $dayStr, 'score' => $scoreVal];
     $cursor = $cursor->add(new DateInterval('P1D'));
   }
+  $latestScoreValue = null;
+  $latestScoreDay = null;
+  for ($idx = count($scoreRows) - 1; $idx >= 0; $idx--) {
+    $row = $scoreRows[$idx];
+    if ($row['score'] !== null) {
+      $latestScoreValue = $row['score'];
+      $latestScoreDay = $row['day'];
+      break;
+    }
+  }
 
   // readiness components (wearables, sleep, workout) aggregated manually so we can show workouts even without wearables logged that day
   $wearStmt = $pdo->prepare("
@@ -305,6 +315,8 @@ try {
     'ok' => true,
     'score' => [
       'today' => $scoreTodayValue,
+      'latest' => $latestScoreValue,
+      'latest_day' => $latestScoreDay,
       'trend' => $scoreRows,
     ],
     'readiness' => [
