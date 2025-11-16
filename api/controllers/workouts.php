@@ -64,6 +64,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if ($duration_min <= 0) fail('duration_min required');
 
+  $cleanActivities = [];
+  $activityTotalMin = 0;
+  if ($activities) {
+    foreach ($activities as $a) {
+      $atype = trim((string)($a['activity_type'] ?? ''));
+      $mins  = (int)($a['minutes'] ?? 0);
+      $aint  = trim((string)($a['intensity'] ?? ''));
+      $anote = trim((string)($a['note'] ?? ''));
+      if ($atype === '' || $mins <= 0) {
+        continue;
+      }
+      $cleanActivities[] = [
+        'activity_type' => $atype,
+        'minutes' => $mins,
+        'intensity' => $aint,
+        'note' => $anote,
+      ];
+      $activityTotalMin += $mins;
+    }
+  }
+
+  if (!$cleanActivities) {
+    fail('activities_required');
+  }
+  if ($activityTotalMin !== $duration_min) {
+    fail('activities_duration_mismatch');
+  }
+
   try {
     $pdo->beginTransaction();
 
@@ -72,18 +100,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $insW->execute([$actorId, $dt->format('Y-m-d H:i:s'), $duration_min, $intensity, $note]);
     $workout_id = (int)$pdo->lastInsertId();
 
-    if ($activities) {
-      $insA = $pdo->prepare("INSERT INTO workout_activities (workout_id, activity_type, minutes, intensity, note)
-                             VALUES (?, ?, ?, ?, ?)");
-      foreach ($activities as $a) {
-        $atype = (string)($a['activity_type'] ?? '');
-        $mins  = (int)($a['minutes'] ?? 0);
-        $aint  = (string)($a['intensity'] ?? '');
-        $anote = (string)($a['note'] ?? '');
-        if ($atype !== '' && $mins > 0) {
-          $insA->execute([$workout_id, $atype, $mins, $aint, $anote]);
-        }
-      }
+    $insA = $pdo->prepare("INSERT INTO workout_activities (workout_id, activity_type, minutes, intensity, note)
+                           VALUES (?, ?, ?, ?, ?)");
+    foreach ($cleanActivities as $a) {
+      $insA->execute([$workout_id, $a['activity_type'], $a['minutes'], $a['intensity'], $a['note']]);
     }
 
     $pdo->commit();

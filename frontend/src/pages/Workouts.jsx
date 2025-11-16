@@ -145,13 +145,31 @@ function NewWorkoutModal({ onClose, onSaved }) {
   const addAct = () => setActs(list => [...list, { activity_type: ACTIVITIES[0], minutes: 10, intensity: "easy", note: "" }]);
   const remAct = (i) => setActs(list => list.filter((_, idx) => idx !== i));
 
+  const durationNumber = Number(duration) || 0;
+  const totalActivityMinutes = useMemo(
+    () => acts.reduce((sum, act) => sum + (Number(act.minutes) || 0), 0),
+    [acts]
+  );
+  const minutesMatch = durationNumber > 0 && totalActivityMinutes === durationNumber;
+  const canSave = !saving && acts.length > 0 && durationNumber > 0 && minutesMatch;
+
   async function save() {
+    if (!acts.length) {
+      alert("Add at least one activity.");
+      return;
+    }
     setSaving(true);
     try {
       // validate activity types are in the supported list to avoid enum truncation
       const cleanedActs = acts
         .filter(a => a.activity_type && ACTIVITIES.includes(a.activity_type))
         .map(a => ({ ...a, minutes: Number(a.minutes) || 0 }));
+
+      if (!cleanedActs.length) {
+        alert("Each activity needs a valid type and minutes.");
+        setSaving(false);
+        return;
+      }
 
       const payload = {
         started_at: toMySQLDateTime(start),
@@ -160,6 +178,13 @@ function NewWorkoutModal({ onClose, onSaved }) {
         note,
         activities: cleanedActs,
       };
+
+      const minutesSum = cleanedActs.reduce((sum, a) => sum + (a.minutes || 0), 0);
+      if (minutesSum !== payload.duration_min) {
+        alert(`Activity minutes (${minutesSum}) must equal the workout duration (${payload.duration_min}).`);
+        setSaving(false);
+        return;
+      }
 
       const data = await apiPost("/controllers/workouts.php", payload);
       // reflect in UI
@@ -213,7 +238,12 @@ function NewWorkoutModal({ onClose, onSaved }) {
 
           <div className="rounded-xl bg-slate-950 border border-slate-800 p-3">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-slate-400">Activities</div>
+              <div className="text-sm text-slate-400">
+                Activities{" "}
+                <span className={minutesMatch ? "text-emerald-400" : "text-rose-400"}>
+                  ({totalActivityMinutes} / {durationNumber} min)
+                </span>
+              </div>
               <button onClick={addAct} className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm">Add activity</button>
             </div>
             <div className="space-y-2">
@@ -236,7 +266,7 @@ function NewWorkoutModal({ onClose, onSaved }) {
           <div className="flex justify-end gap-2">
             <button className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm" onClick={onClose}>Cancel</button>
             <button className="px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold text-white disabled:opacity-60"
-              onClick={save} disabled={saving}>
+              onClick={save} disabled={!canSave}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
