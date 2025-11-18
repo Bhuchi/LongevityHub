@@ -74,8 +74,44 @@ if ($method === 'GET') {
   }
 
   try {
-    $st = $pdo->prepare("SELECT meal_id, user_id, eaten_at, note FROM meals WHERE user_id=? ORDER BY eaten_at DESC");
-    $st->execute([$targetUserId]);
+    $rangeParam = strtolower((string)($_GET['range'] ?? '7d'));
+    $today = new DateTimeImmutable('today');
+    $startDate = $today;
+    $useDateFilter = true;
+    switch ($rangeParam) {
+      case '30d':
+        $startDate = $today->sub(new DateInterval('P29D'));
+        break;
+      case '1m':
+        $startDate = $today->sub(new DateInterval('P1M'));
+        break;
+      case '1y':
+        $startDate = $today->sub(new DateInterval('P1Y'));
+        break;
+      case 'all':
+        $useDateFilter = false;
+        break;
+      case '7d':
+      default:
+        $startDate = $today->sub(new DateInterval('P6D'));
+        $rangeParam = '7d';
+        break;
+    }
+    $params = [$targetUserId];
+    $where = "user_id=?";
+    if ($useDateFilter) {
+      $startBound = $startDate->setTime(0, 0)->format('Y-m-d H:i:s');
+      $where .= " AND eaten_at >= ?";
+      $params[] = $startBound;
+    }
+    $sql = "
+      SELECT meal_id, user_id, eaten_at, note
+      FROM meals
+      WHERE {$where}
+      ORDER BY eaten_at DESC
+    ";
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
     $meals = $st->fetchAll(PDO::FETCH_ASSOC);
 
     $stItems = $pdo->prepare("SELECT meal_item_id, meal_id, food_id, grams FROM meal_items WHERE meal_id=?");

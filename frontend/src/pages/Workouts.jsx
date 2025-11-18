@@ -7,6 +7,12 @@ import { apiGet, apiPost, apiDelete } from "../api";
 /** Keep in sync with your DB ENUMs */
 const INTENSITIES = ["easy", "moderate", "hard"];
 const ACTIVITIES  = ["run", "walk", "cycle", "swim", "strength", "yoga", "row"]; // add only if enum has "row"
+const RANGE_OPTIONS = [
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "1y", label: "1 year" },
+  { value: "all", label: "All" },
+];
 
 const fmtDate = (sql) => new Date(String(sql).replace(" ", "T")).toLocaleString();
 
@@ -26,11 +32,13 @@ export default function Workouts() {
   const [loading, setLoading]   = useState(true);
   const [q, setQ]               = useState("");
   const [showNew, setShowNew]   = useState(false);
+  const [range, setRange]       = useState("7d");
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
-        const data = await apiGet("/controllers/workouts.php");
+        const data = await apiGet(`/controllers/workouts.php?range=${range}`);
         const normalized = (data.workouts || []).map(w => ({
           id: w.workout_id,                    // <<< IMPORTANT for delete
           started_at: w.started_at,
@@ -44,7 +52,7 @@ export default function Workouts() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [range]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -92,6 +100,23 @@ export default function Workouts() {
             Log workout
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-sm text-slate-400">Show:</span>
+        {RANGE_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => setRange(opt.value)}
+            className={`px-3 py-1.5 rounded-xl text-sm border transition ${
+              range === opt.value
+                ? "bg-sky-600 border-sky-500 text-white"
+                : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (

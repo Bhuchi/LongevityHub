@@ -18,11 +18,19 @@ function toMySQLDateTime(localInput) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+const RANGE_OPTIONS = [
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "1y", label: "1 year" },
+  { value: "all", label: "All" },
+];
+
 export default function Meals() {
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [range, setRange] = useState("7d");
   const location = useLocation();
 
   useEffect(() => { if (location.state?.openLog === "meal") setShowNew(true); }, [location.state]);
@@ -32,7 +40,9 @@ export default function Meals() {
     if (!user) { setMeals([]); setLoading(false); return; }
     (async () => {
       try {
-        const data = await apiGet(`/controllers/meals.php?user_id=${user.user_id}`);
+        const data = await apiGet(
+          `/controllers/meals.php?user_id=${user.user_id}&range=${range}`
+        );
         const normalized = (data.meals || []).map(m => ({
           id: m.meal_id,
           at: m.eaten_at,
@@ -47,7 +57,7 @@ export default function Meals() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [range]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return meals;
@@ -83,6 +93,23 @@ export default function Meals() {
             Log meal
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-sm text-slate-400">Show:</span>
+        {RANGE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setRange(opt.value)}
+            className={`px-3 py-1.5 rounded-xl text-sm border transition ${
+              range === opt.value
+                ? "bg-sky-600 border-sky-500 text-white"
+                : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (

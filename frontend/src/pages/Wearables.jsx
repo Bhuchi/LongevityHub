@@ -12,6 +12,12 @@ import {
 
 const API_URL = "http://localhost:8888"; // ✅ your MAMP root (no /api)
 const PAGE_SIZE = 30;
+const RANGE_OPTIONS = [
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "1y", label: "1 year" },
+  { value: "all", label: "All" },
+];
 
 /* --- Helper --- */
 const fmtDate = (iso) =>
@@ -31,6 +37,7 @@ export default function Wearables() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [range, setRange] = useState("7d");
 
   /* --- Fetch data from MySQL --- */
   useEffect(() => {
@@ -43,6 +50,7 @@ export default function Wearables() {
           page: String(page),
           limit: String(PAGE_SIZE),
         });
+        params.append("range", range);
         if (appliedSearch) params.append("date", appliedSearch);
         const res = await fetch(`${API_URL}/get_wearables.php?${params}`, {
           credentials: "include",
@@ -72,7 +80,7 @@ export default function Wearables() {
     return () => {
       active = false;
     };
-  }, [page, appliedSearch]);
+  }, [page, appliedSearch, range]);
 
   function applySearch() {
     setPage(1);
@@ -95,6 +103,11 @@ function jumpToPage() {
   if (!pageInput) return;
   const target = Math.max(1, Math.min(totalPages, Number(pageInput)));
   setPage(target);
+}
+
+function handleRangeChange(val) {
+  setRange(val);
+  setPage(1);
 }
 
   /* --- Upload CSV file --- */
@@ -187,6 +200,23 @@ function jumpToPage() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-sm text-slate-400">Show:</span>
+        {RANGE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => handleRangeChange(opt.value)}
+            className={`px-3 py-1.5 rounded-xl text-sm border transition ${
+              range === opt.value
+                ? "bg-sky-600 border-sky-500 text-white"
+                : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {/* --- CSV Import Section --- */}
