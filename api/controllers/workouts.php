@@ -29,9 +29,39 @@ function fail($msg,$code=400){ http_response_code($code); echo json_encode(['err
 // -------- GET: list my workouts (admin could extend with ?user_id=) --------
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   try {
-    $st = $pdo->prepare("SELECT workout_id, user_id, started_at, duration_min, intensity, note
-                         FROM workouts WHERE user_id=? ORDER BY started_at DESC");
-    $st->execute([$actorId]);
+    $rangeParam = strtolower((string)($_GET['range'] ?? '7d'));
+    $today = new DateTimeImmutable('today');
+    $start = $today;
+    $useRangeFilter = true;
+    switch ($rangeParam) {
+      case '30d':
+        $start = $today->sub(new DateInterval('P29D'));
+        break;
+      case '1y':
+        $start = $today->sub(new DateInterval('P1Y'));
+        break;
+      case 'all':
+        $useRangeFilter = false;
+        break;
+      case '7d':
+      default:
+        $start = $today->sub(new DateInterval('P6D'));
+        $rangeParam = '7d';
+        break;
+    }
+
+    $sql = "SELECT workout_id, user_id, started_at, duration_min, intensity, note
+            FROM workouts
+            WHERE user_id=?";
+    $params = [$actorId];
+    if ($useRangeFilter) {
+      $sql .= " AND started_at >= ?";
+      $params[] = $start->setTime(0, 0)->format('Y-m-d H:i:s');
+    }
+    $sql .= " ORDER BY started_at DESC";
+
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
     $ws = $st->fetchAll();
 
     $stActs = $pdo->prepare("SELECT workout_id, activity_type, minutes, intensity, note

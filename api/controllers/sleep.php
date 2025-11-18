@@ -39,15 +39,42 @@ function parse_mysql_dt($s) {
 // ---------- GET: list sessions ----------
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   try {
+    $rangeParam = strtolower((string)($_GET['range'] ?? '7d'));
+    $today = new DateTimeImmutable('today');
+    $start = $today;
+    $useRangeFilter = true;
+    switch ($rangeParam) {
+      case '30d':
+        $start = $today->sub(new DateInterval('P29D'));
+        break;
+      case '1y':
+        $start = $today->sub(new DateInterval('P1Y'));
+        break;
+      case 'all':
+        $useRangeFilter = false;
+        break;
+      case '7d':
+      default:
+        $start = $today->sub(new DateInterval('P6D'));
+        $rangeParam = '7d';
+        break;
+    }
+
     $targetUserId = $actorId;
-    $st = $pdo->prepare("
+    $sql = "
       SELECT sleep_id, user_id, start_time, end_time,
              TIMESTAMPDIFF(MINUTE, start_time, end_time) AS minutes
       FROM sleep_sessions
-      WHERE user_id = ?
-      ORDER BY start_time DESC, sleep_id DESC
-    ");
-    $st->execute([$targetUserId]);
+      WHERE user_id = ?";
+    $params = [$targetUserId];
+    if ($useRangeFilter) {
+      $sql .= " AND start_time >= ?";
+      $params[] = $start->setTime(0, 0)->format('Y-m-d H:i:s');
+    }
+    $sql .= " ORDER BY start_time DESC, sleep_id DESC";
+
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
     $rows = $st->fetchAll();
     echo json_encode(['ok'=>true, 'sessions'=>$rows], JSON_UNESCAPED_UNICODE);
   } catch (Throwable $e) {

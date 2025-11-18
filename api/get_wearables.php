@@ -36,8 +36,37 @@ try {
         if ($d) $dateFilter = $d->format('Y-m-d');
     }
 
+    $rangeParam = strtolower((string)($_GET['range'] ?? '7d'));
+    $today = new DateTimeImmutable('today');
+    $start = $today;
+    $useRangeFilter = true;
+    switch ($rangeParam) {
+        case '30d':
+            $start = $today->sub(new DateInterval('P29D'));
+            break;
+        case '1m':
+            $start = $today->sub(new DateInterval('P1M'));
+            break;
+        case '1y':
+            $start = $today->sub(new DateInterval('P1Y'));
+            break;
+        case 'all':
+            $useRangeFilter = false;
+            break;
+        case '7d':
+        default:
+            $start = $today->sub(new DateInterval('P6D'));
+            $rangeParam = '7d';
+            break;
+    }
+
     $where = "user_id = :uid";
     $params = ['uid' => $user_id];
+    if ($useRangeFilter) {
+        $startBound = $start->format('Y-m-d');
+        $where .= " AND DATE(ts) >= :start_date";
+        $params['start_date'] = $startBound;
+    }
     if ($dateFilter) {
         $where .= " AND DATE(ts) = :day";
         $params['day'] = $dateFilter;

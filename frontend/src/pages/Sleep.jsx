@@ -22,11 +22,13 @@ export default function Sleep() {
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [range, setRange] = useState("7d");
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await apiGet("/controllers/sleep.php");
+        setLoading(true);
+        const data = await apiGet(`/controllers/sleep.php?range=${range}`);
         const rows = (data.sessions || []).map(s => ({
           id: s.sleep_id,
           start: s.start_time,
@@ -40,7 +42,7 @@ export default function Sleep() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [range]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return list;
@@ -87,6 +89,23 @@ export default function Sleep() {
             <Plus className="h-4 w-4" /> Log sleep
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-sm text-slate-400">Show:</span>
+        {RANGE_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => setRange(opt.value)}
+            className={`px-3 py-1.5 rounded-xl text-sm border transition ${
+              range === opt.value
+                ? "bg-sky-600 border-sky-500 text-white"
+                : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -270,3 +289,9 @@ function SleepModal({ title, initial, onClose, onSave }) {
     </div>
   );
 }
+const RANGE_OPTIONS = [
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "1y", label: "1 year" },
+  { value: "all", label: "All" },
+];
