@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Users, ArrowLeft, Plus, Search, Trash2, Shield, RefreshCw } from "lucide-react";
 import Navbar from "../../components/Navbar";
 import { useNavigate } from "react-router-dom";
-import { apiGet, apiPost, apiDelete } from "../../api";
+import { apiGet, apiPost, apiDelete, apiPut } from "../../api";
 
 /* UI helpers */
 const Card = ({ className = "", children }) => (
@@ -57,6 +57,7 @@ export default function AdminUsers() {
     password: "",
     tz: "Asia/Bangkok",
   });
+  const [roleSaving, setRoleSaving] = useState(null);
 
   useEffect(() => {
     loadUsers();
@@ -113,6 +114,27 @@ export default function AdminUsers() {
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (err) {
       alert(err.message || "Delete failed");
+    }
+  }
+
+  async function changeRole(userId, newRole) {
+    const prevRole = users.find((u) => u.id === userId)?.role;
+    if (!newRole || prevRole === newRole) return;
+    setRoleSaving(userId);
+    setStatus("");
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+    );
+    try {
+      await apiPut("/controllers/admin_users.php", { user_id: userId, role: newRole });
+      setStatus("✅ Role updated");
+    } catch (err) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: prevRole ?? u.role } : u))
+      );
+      alert(err.message || "Role update failed");
+    } finally {
+      setRoleSaving(null);
     }
   }
 
@@ -243,7 +265,21 @@ export default function AdminUsers() {
                         </div>
                       </td>
                       <td className="px-5 py-3 text-slate-300">{u.email}</td>
-                      <td className="px-5 py-3"><RolePill role={u.role} /></td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <RolePill role={u.role} />
+                          <select
+                            className="bg-slate-900 border border-slate-800 rounded-lg text-xs px-2 py-1 text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-600"
+                            value={u.role}
+                            onChange={(e) => changeRole(u.id, e.target.value)}
+                            disabled={roleSaving === u.id}
+                          >
+                            <option value="member">Member</option>
+                            <option value="premium">Premium</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </div>
+                      </td>
                       <td className="px-5 py-3 text-slate-300">{u.joined}</td>
                       <td className="px-5 py-3">
                         <Button

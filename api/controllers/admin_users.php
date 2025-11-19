@@ -74,6 +74,42 @@ if ($method === 'POST') {
   exit;
 }
 
+if ($method === 'PUT') {
+  $body = json_decode(file_get_contents('php://input'), true) ?? [];
+  $userId = (int)($body['user_id'] ?? 0);
+  if ($userId <= 0) json_fail('user_id required');
+
+  $role = array_key_exists('role', $body) ? strtolower((string)$body['role']) : null;
+  $tz   = array_key_exists('tz', $body) ? trim((string)$body['tz']) : null;
+
+  $fields = [];
+  $params = [];
+
+  if ($role !== null) {
+    if (!in_array($role, ['member', 'premium', 'admin'], true)) {
+      json_fail('invalid role');
+    }
+    $fields[] = "role=?";
+    $params[] = $role;
+  }
+
+  if ($tz !== null) {
+    $fields[] = "tz=?";
+    $params[] = ($tz === '' ? 'Asia/Bangkok' : $tz);
+  }
+
+  if (!$fields) json_fail('no changes provided');
+
+  try {
+    $params[] = $userId;
+    $pdo->prepare("UPDATE users SET " . implode(',', $fields) . " WHERE user_id=?")->execute($params);
+    echo json_encode(['ok' => true]);
+  } catch (Throwable $e) {
+    json_fail($e->getMessage(), 500);
+  }
+  exit;
+}
+
 if ($method === 'DELETE') {
   $payload = $_GET;
   if ($_SERVER['CONTENT_TYPE'] ?? '' === 'application/json') {

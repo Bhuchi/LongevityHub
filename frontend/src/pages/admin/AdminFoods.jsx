@@ -50,9 +50,8 @@ export default function AdminFoods() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [nameDraft, setNameDraft] = useState("");
-  const [brandDraft, setBrandDraft] = useState("");
   const [nutrientDraft, setNutrientDraft] = useState({});
-  const [newFood, setNewFood] = useState({ name: "", brand: "" });
+  const [newFood, setNewFood] = useState({ name: "" });
 
   const unitOptions = useMemo(
     () => Array.from(new Set(nutrients.map((n) => n.unit))).filter(Boolean),
@@ -71,7 +70,6 @@ export default function AdminFoods() {
       const normalizedFoods = (data.foods || []).map((f) => ({
         id: Number(f.id ?? f.food_id),
         name: f.name,
-        brand: f.brand || "",
         nutrients: (f.nutrients || []).map((n) => ({
           nutrient_id: Number(n.nutrient_id ?? n.id),
           name: n.name,
@@ -104,20 +102,16 @@ export default function AdminFoods() {
   const displayFoods = useMemo(() => {
     if (!query.trim()) return foods;
     const needle = query.toLowerCase();
-    return foods.filter((f) =>
-      `${f.name} ${f.brand}`.toLowerCase().includes(needle)
-    );
+    return foods.filter((f) => f.name.toLowerCase().includes(needle));
   }, [foods, query]);
 
   useEffect(() => {
     if (!selected) {
       setNameDraft("");
-      setBrandDraft("");
       setNutrientDraft({});
       return;
     }
     setNameDraft(selected.name);
-    setBrandDraft(selected.brand);
     const draft = {};
     nutrients.forEach((n) => {
       const hit = selected.nutrients.find((x) => x.nutrient_id === n.id);
@@ -138,7 +132,6 @@ export default function AdminFoods() {
       await apiPut("/controllers/admin_foods.php", {
         food_id: selected.id,
         name: nameDraft.trim(),
-        brand: brandDraft.trim(),
         nutrients: Object.entries(nutrientDraft).map(([nid, amt]) => ({
           nutrient_id: Number(nid),
           amount: Number(amt) || 0,
@@ -159,9 +152,8 @@ export default function AdminFoods() {
     try {
       const res = await apiPost("/controllers/admin_foods.php", {
         name: newFood.name.trim(),
-        brand: newFood.brand.trim(),
       });
-      setNewFood({ name: "", brand: "" });
+      setNewFood({ name: "" });
       await loadFoods();
       if (res?.food_id) setSelectedId(Number(res.food_id));
     } catch (err) {
@@ -217,19 +209,13 @@ export default function AdminFoods() {
           </div>
 
           <Card className="p-4">
-            <form className="grid gap-3 md:grid-cols-[2fr_2fr_auto]" onSubmit={handleCreate}>
+            <form className="grid gap-3 md:grid-cols-[2fr_auto]" onSubmit={handleCreate}>
               <input
                 value={newFood.name}
                 onChange={(e) => setNewFood((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Food name"
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
                 required
-              />
-              <input
-                value={newFood.brand}
-                onChange={(e) => setNewFood((f) => ({ ...f, brand: e.target.value }))}
-                placeholder="Brand (optional)"
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
               />
               <Button type="submit">
                 <Plus className="h-4 w-4" /> Add Food
@@ -268,10 +254,7 @@ export default function AdminFoods() {
                           active ? "bg-slate-800/60 border-sky-700/50" : "bg-slate-900/40 border-slate-800 hover:bg-slate-800/50"
                         }`}
                       >
-                        <div>
-                          <div className="font-medium">{f.name}</div>
-                          <div className="text-xs text-slate-400">{f.brand || "—"}</div>
-                        </div>
+                        <div className="font-medium">{f.name}</div>
                         <ChevronRight className={`h-4 w-4 ${active ? "text-sky-400" : "text-slate-500 group-hover:text-slate-300"}`} />
                       </button>
                     );
@@ -282,7 +265,7 @@ export default function AdminFoods() {
 
             <Card className="lg:col-span-2 p-5">
               {!selected ? (
-                <div className="text-slate-400 text-sm">Select a food to edit its brand and nutrients.</div>
+                <div className="text-slate-400 text-sm">Select a food to edit its nutrients.</div>
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-4">
@@ -293,17 +276,11 @@ export default function AdminFoods() {
                     {status && <div className="text-xs text-slate-400">{status}</div>}
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-3 mb-4">
+                  <div className="mb-4">
                     <input
                       value={nameDraft}
                       onChange={(e) => setNameDraft(e.target.value)}
                       placeholder="Food name"
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
-                    />
-                    <input
-                      value={brandDraft}
-                      onChange={(e) => setBrandDraft(e.target.value)}
-                      placeholder="Brand (optional)"
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-sky-600"
                     />
                   </div>
