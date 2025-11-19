@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [goalTimeline, setGoalTimeline] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -48,6 +49,24 @@ export default function Dashboard() {
         setPayload(null);
       } finally {
         if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await apiGet("/controllers/goal_progress.php?range=30d");
+        if (!active) return;
+        setGoalTimeline(data?.rows || []);
+      } catch (e) {
+        if (!active) return;
+        console.error("Goal progress load failed", e);
+        setGoalTimeline([]);
       }
     })();
     return () => {
@@ -379,6 +398,34 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+
+      {goalTimeline.length > 0 && (
+        <Card>
+          <h2 className="text-lg font-semibold mb-3">Goal Progress (from v_goal_progress_daily)</h2>
+          <div className="overflow-auto text-sm">
+            <table className="w-full">
+              <thead>
+                <tr className="text-slate-400">
+                  <th className="text-left py-1">Day</th>
+                  <th className="text-left">Goal</th>
+                  <th className="text-left">Actual</th>
+                  <th className="text-left">Target</th>
+                </tr>
+              </thead>
+              <tbody>
+                {goalTimeline.slice(0, 8).map((row, idx) => (
+                  <tr key={`${row.day}-${row.goal_type}-${idx}`} className="text-slate-200">
+                    <td className="py-1">{row.day}</td>
+                    <td className="capitalize">{row.goal_type.replace('_', ' ')}</td>
+                    <td>{row.actual_value !== null ? Number(row.actual_value).toFixed(1) : '--'}</td>
+                    <td>{Number(row.target_value).toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Upload + shortcuts */}
       <div className="grid md:grid-cols-3 gap-6">

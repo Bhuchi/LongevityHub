@@ -6,12 +6,12 @@ export const FOODS = [
   { id: 5, name: "Broccoli", protein_g: 2.8, carb_g: 7 },
 ];
 
-export function computeTotals(items = []) {
+export function computeTotals(items = [], foods = FOODS) {
   let protein = 0;
   let carbs = 0;
 
   for (const it of items) {
-    const food = FOODS.find((f) => f.id === Number(it.food_id));
+    const food = foods.find((f) => f.id === Number(it.food_id));
     if (!food) continue;
     const grams = Number(it.grams) || 0;
     const factor = grams / 100;

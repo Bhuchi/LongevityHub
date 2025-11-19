@@ -31,9 +31,36 @@ export default function Meals() {
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [range, setRange] = useState("7d");
+  const [foods, setFoods] = useState(FOODS);
+  const [nutrientRows, setNutrientRows] = useState([]);
   const location = useLocation();
 
   useEffect(() => { if (location.state?.openLog === "meal") setShowNew(true); }, [location.state]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await apiGet("/foods.php");
+        if (!active) return;
+        if (Array.isArray(data?.foods) && data.foods.length) {
+          setFoods(
+            data.foods.map((f) => ({
+              id: f.id,
+              name: f.name,
+              protein_g: f.protein_g ?? 0,
+              carb_g: f.carb_g ?? 0,
+            }))
+          );
+        }
+      } catch (e) {
+        console.error("Load foods failed:", e);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const user = getUser();
@@ -48,7 +75,6 @@ export default function Meals() {
           at: m.eaten_at,
           note: m.note || "",
           items: m.items || [],
-          totals: m.totals || computeTotals(m.items || []),
         }));
         setMeals(normalized);
       } catch (e) {
@@ -59,14 +85,39 @@ export default function Meals() {
     })();
   }, [range]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await apiGet(`/controllers/nutrients_summary.php?range=${range}`);
+        if (!active) return;
+        setNutrientRows(data?.rows || []);
+      } catch (e) {
+        if (!active) return;
+        console.error("Load nutrient summary failed", e);
+        setNutrientRows([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [range]);
+
+  const mealsWithTotals = useMemo(() => {
+    return meals.map((m) => ({
+      ...m,
+      totals: computeTotals(m.items, foods),
+    }));
+  }, [meals, foods]);
+
   const filtered = useMemo(() => {
-    if (!q.trim()) return meals;
+    if (!q.trim()) return mealsWithTotals;
     const s = q.toLowerCase();
-    return meals.filter(m =>
+    return mealsWithTotals.filter(m =>
       (m.note || "").toLowerCase().includes(s) ||
-      m.items.some(it => (FOODS.find(f => f.id === Number(it.food_id))?.name || "").toLowerCase().includes(s))
+      m.items.some(it => (foods.find(f => f.id === Number(it.food_id))?.name || "").toLowerCase().includes(s))
     );
-  }, [meals, q]);
+  }, [mealsWithTotals, q, foods]);
 
   function addMeal(newMeal) { setMeals(v => [newMeal, ...v]); }
   function removeMeal(id) { setMeals(v => v.filter(m => m.id !== id)); }
@@ -112,6 +163,34 @@ export default function Meals() {
         ))}
       </div>
 
+      <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 mb-6">
+        <div className="text-slate-400 text-sm mb-2">Daily macros from v_daily_nutrients</div>
+        {nutrientRows.length === 0 ? (
+          <div className="text-slate-500 text-sm">No nutrient data in this range.</div>
+        ) : (
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-slate-400">
+                  <th className="text-left py-1">Day</th>
+                  <th className="text-left">Protein (g)</th>
+                  <th className="text-left">Carbs (g)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nutrientRows.slice(0, 10).map((row) => (
+                  <tr key={row.day} className="text-slate-200">
+                    <td className="py-1">{row.day}</td>
+                    <td>{Math.round(row.protein_g || 0)}</td>
+                    <td>{Math.round(row.carb_g || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <div className="text-slate-400">Loading…</div>
       ) : filtered.length === 0 ? (
@@ -123,17 +202,17 @@ export default function Meals() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filtered.map(m => (
-            <MealCard key={m.id} meal={m} onDeleted={removeMeal} />
+            <MealCard key={m.id} meal={m} onDeleted={removeMeal} foods={foods} />
           ))}
         </div>
       )}
 
-      {showNew && <NewMealModal onClose={() => setShowNew(false)} onSaved={addMeal} />}
+      {showNew && <NewMealModal onClose={() => setShowNew(false)} onSaved={addMeal} foods={foods} />}
     </Layout>
   );
 }
 
-function MealCard({ meal, onDeleted }) {
+function MealCard({ meal, onDeleted, foods }) {
   const carbTotal = meal.totals?.carb_g ?? meal.totals?.fiber_g ?? 0;
   async function handleDelete() {
     try {
@@ -158,7 +237,7 @@ function MealCard({ meal, onDeleted }) {
 
       <ul className="mt-3 space-y-1 text-sm">
         {meal.items.map((it, idx) => {
-          const f = FOODS.find(x => x.id === Number(it.food_id));
+          const f = foods.find(x => x.id === Number(it.food_id));
           return (
             <li key={idx} className="flex justify-between text-slate-300">
               <span>{f?.name || "Unknown"} <span className="text-slate-500">• {it.grams} g</span></span>
@@ -179,15 +258,27 @@ function MealCard({ meal, onDeleted }) {
   );
 }
 
-function NewMealModal({ onClose, onSaved }) {
+function NewMealModal({ onClose, onSaved, foods }) {
   const [at, setAt] = useState(toLocalInputValue(new Date()));
   const [note, setNote] = useState("");
-  const [items, setItems] = useState([{ food_id: 1, grams: 150 }]);
+  const firstFoodId = foods[0]?.id || 0;
+  const [items, setItems] = useState([{ food_id: firstFoodId, grams: 150 }]);
   const [saving, setSaving] = useState(false);
 
-  const totals = computeTotals(items);
+  useEffect(() => {
+    if (!foods.length) return;
+    setItems((arr) =>
+      arr.map((it) =>
+        foods.some((f) => f.id === Number(it.food_id))
+          ? it
+          : { ...it, food_id: firstFoodId }
+      )
+    );
+  }, [foods, firstFoodId]);
+
+  const totals = computeTotals(items, foods);
   const setItem = (i, field, value) => setItems(arr => arr.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
-  const addRow = () => setItems(arr => [...arr, { food_id: 1, grams: 100 }]);
+  const addRow = () => setItems(arr => [...arr, { food_id: firstFoodId, grams: 100 }]);
   const removeRow = (i) => setItems(arr => arr.filter((_, idx) => idx !== i));
 
   async function save() {
@@ -197,7 +288,7 @@ function NewMealModal({ onClose, onSaved }) {
       const data = await apiPost("/controllers/meals.php", payload);
       if (!data?.ok) throw new Error(data?.error || "Unknown error");
 
-      onSaved({ id: data.meal_id, at: payload.at, note: payload.note, items: payload.items, totals });
+      onSaved({ id: data.meal_id, at: payload.at, note: payload.note, items: payload.items });
       onClose();
     } catch (err) {
       alert("❌ Failed: " + err.message);
@@ -235,7 +326,7 @@ function NewMealModal({ onClose, onSaved }) {
               {items.map((it, i) => (
                 <div key={i} className="grid grid-cols-6 gap-2">
                   <select className="inp col-span-4" value={it.food_id} onChange={(e) => setItem(i, "food_id", Number(e.target.value))}>
-                    {FOODS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    {foods.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
                   <input type="number" className="inp col-span-2" value={it.grams} onChange={(e) => setItem(i, "grams", Number(e.target.value))} />
                   <div className="col-span-6 flex justify-end">
