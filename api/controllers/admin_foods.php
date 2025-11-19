@@ -23,13 +23,12 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
   try {
-    $foodsStmt = $pdo->query("SELECT food_id, name, brand FROM foods ORDER BY name ASC");
+    $foodsStmt = $pdo->query("SELECT food_id, name FROM foods ORDER BY name ASC");
     $foods = [];
     foreach ($foodsStmt as $row) {
       $foods[$row['food_id']] = [
         'id' => (int)$row['food_id'],
         'name' => $row['name'],
-        'brand' => $row['brand'],
         'nutrients' => [],
       ];
     }
@@ -74,15 +73,14 @@ if ($method === 'GET') {
 if ($method === 'POST') {
   $body = json_decode(file_get_contents('php://input'), true) ?? [];
   $name = trim((string)($body['name'] ?? ''));
-  $brand = trim((string)($body['brand'] ?? ''));
   $nutrients = is_array($body['nutrients'] ?? null) ? $body['nutrients'] : [];
 
   if ($name === '') json_fail('name required');
 
   try {
     $pdo->beginTransaction();
-    $ins = $pdo->prepare("INSERT INTO foods (name, brand) VALUES (?, ?)");
-    $ins->execute([$name, $brand !== '' ? $brand : null]);
+    $ins = $pdo->prepare("INSERT INTO foods (name) VALUES (?)");
+    $ins->execute([$name]);
     $foodId = (int)$pdo->lastInsertId();
 
     if ($nutrients) {
@@ -111,7 +109,6 @@ if ($method === 'PUT') {
   if ($foodId <= 0) json_fail('food_id required');
 
   $name = array_key_exists('name', $body) ? trim((string)$body['name']) : null;
-  $brand = array_key_exists('brand', $body) ? trim((string)$body['brand']) : null;
   $nutrients = is_array($body['nutrients'] ?? null) ? $body['nutrients'] : null;
 
   try {
@@ -123,10 +120,6 @@ if ($method === 'PUT') {
       if ($name === '') json_fail('name cannot be empty');
       $fields[] = "name=?";
       $params[] = $name;
-    }
-    if ($brand !== null) {
-      $fields[] = "brand=?";
-      $params[] = ($brand === '' ? null : $brand);
     }
     if ($fields) {
       $params[] = $foodId;

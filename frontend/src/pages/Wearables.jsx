@@ -38,7 +38,6 @@ export default function Wearables() {
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [range, setRange] = useState("7d");
-  const [readinessRows, setReadinessRows] = useState([]);
 
   /* --- Fetch data from MySQL --- */
   useEffect(() => {
@@ -83,23 +82,6 @@ export default function Wearables() {
     };
   }, [page, appliedSearch, range]);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const data = await apiGet(`/controllers/readiness.php?range=${range}`);
-        if (!active) return;
-        setReadinessRows(data?.rows || []);
-      } catch (e) {
-        if (!active) return;
-        console.error("Readiness load failed", e);
-        setReadinessRows([]);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [range]);
 
   function applySearch() {
     setPage(1);
@@ -266,39 +248,6 @@ function handleRangeChange(val) {
         </div>
       </div>
 
-      <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 mb-6">
-        <div className="text-slate-400 text-sm mb-2">Readiness summary (from v_daily_readiness)</div>
-        {readinessRows.length === 0 ? (
-          <div className="text-slate-500 text-sm">No readiness data in this range.</div>
-        ) : (
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-slate-400">
-                  <th className="text-left py-1">Day</th>
-                  <th className="text-left">Steps</th>
-                  <th className="text-left">Sleep (h)</th>
-                  <th className="text-left">Workout (min)</th>
-                  <th className="text-left">HRV</th>
-                  <th className="text-left">Resting HR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {readinessRows.slice(0, 7).map(r => (
-                  <tr key={r.day} className="text-slate-200">
-                    <td className="py-1">{r.day}</td>
-                    <td>{Math.round(r.steps || 0).toLocaleString()}</td>
-                    <td>{(r.sleep_hours ?? 0).toFixed(1)}</td>
-                    <td>{Math.round(r.workout_min || 0)}</td>
-                    <td>{r.avg_hrv ?? "--"}</td>
-                    <td>{r.avg_rhr ?? "--"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {/* --- Average Cards --- */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
